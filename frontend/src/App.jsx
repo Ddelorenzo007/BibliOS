@@ -1,40 +1,65 @@
-import './App.css';
-import './welcome.css'; // Crearemos este archivo con los estilos migrados
-import logo2 from './assets/BibliOS_Logo2.png';
-import libro from './assets/libro.png';
-import { Link } from 'react-router-dom';
-import Navbar from './Navbar.jsx';
-import { useEffect } from 'react';
-import { initializeMockData } from './utils/mockData.js';
+import "./App.css";
+import "./welcome.css";
+
+import libro from "./assets/libro.png";
+
+import { Link } from "react-router-dom";
+import Navbar from "./Navbar.jsx";
+import { useEffect } from "react";
+import { initializeMockData } from "./utils/mockData.js";
 
 function App() {
   useEffect(() => {
-    document.body.classList.add('home-page-active');
+    document.body.classList.add("home-page-active");
 
-    // Inicializar datos mock al cargar la página
+    // Por el momento dejamos los datos mock.
+    // En un sprint posterior eliminaremos completamente esta lógica.
     initializeMockData();
 
     return () => {
-      document.body.classList.remove('home-page-active');
+      document.body.classList.remove("home-page-active");
     };
   }, []);
 
   return (
     <div className="home-page">
       <Navbar />
+
       <main className="hero">
         <div className="hero-text">
-          <span className="tagline">SISTEMA BIBLIOTECARIO</span>
-          <h1 className="hero-title">BibliOS</h1>
+
+          <span className="tagline">
+            UNIVERSIDAD TECNOLÓGICA NACIONAL
+          </span>
+
+          <h1 className="hero-title">
+            BibliOS
+          </h1>
+
           <p className="hero-description">
-            Este es un proyecto universitario desarrollado para la facultad de ingenieria UTNFRLP
+            Sistema Integral de Gestión Bibliotecaria para la Biblioteca de la
+            Facultad Regional La Plata.
           </p>
+
+          <p className="hero-description">
+            Permite administrar obras, ejemplares, socios, préstamos,
+            documentación institucional y auditorías desde una única aplicación.
+          </p>
+
           <div className="cta-group">
-            <Link className="primary-btn" to="/registro">Registrar Biblioteca Gratis</Link>
+            <Link className="primary-btn" to="/login">
+              Iniciar sesión
+            </Link>
           </div>
+
         </div>
+
         <div className="hero-img">
-          <img src={libro} alt="Libro" className="float" />
+          <img
+            src={libro}
+            alt="BibliOS"
+            className="float"
+          />
         </div>
       </main>
     </div>
