@@ -6,7 +6,7 @@ import Navbar from './Navbar.jsx';
 
 function Login() {
   const navigate = useNavigate();
-  const [libraryName, setLibraryName] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -16,7 +16,7 @@ function Login() {
 
   // Limpiar formulario al cargar la página
   useEffect(() => {
-    setLibraryName('');
+    setUsername('');
     setPassword('');
     setError('');
     setIsLoading(false);
@@ -30,7 +30,7 @@ function Login() {
 
       // Esperar un momento y luego enfocar el primer input
       setTimeout(() => {
-        const firstInput = document.querySelector('#libraryName');
+        const firstInput = document.querySelector('#username');
         if (firstInput) {
           firstInput.focus();
           firstInput.click(); // Click adicional para asegurar que funcione
@@ -242,21 +242,22 @@ function Login() {
           </button>
           <div className="login-header">
             <h1>Iniciar Sesión</h1>
-            <p>Ingresa tus credenciales para acceder</p>
+            <p>Ingrese su usuario y contraseña para acceder al sistema.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="login-form">
             <div className="form-group">
-              <label htmlFor="libraryName" className="form-label">
-                Biblioteca
+              <label htmlFor="username" className="form-label">
+                Usuario
               </label>
+
               <input
-                id="libraryName"
+                id="username"
                 type="text"
-                value={libraryName}
-                onChange={(e) => setLibraryName(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 onClick={handleInputClick}
-                placeholder="Ej: UTN-FRLP"
+                placeholder="Nombre de usuario"
                 className="form-input"
                 required
                 disabled={isLoading}
@@ -300,7 +301,7 @@ function Login() {
             <button
               type="submit"
               className="login-submit-btn"
-              disabled={isLoading || !libraryName.trim() || !password.trim()}
+              disabled={isLoading || !username.trim() || !password.trim()}
             >
               <LogIn size={15} />
               {isLoading ? 'Iniciando...' : 'Iniciar Sesión'}
@@ -308,25 +309,6 @@ function Login() {
           </form>
 
           <div className="login-actions">
-            <button className="register-btn" onClick={() => navigate('/registro')}>
-              Registrar biblioteca
-            </button>
-            {window.electronAPI && (
-              <button
-                onClick={handleCreateAndLoginUTN}
-                disabled={isCreatingDemo || isLoading}
-                className="demo-link"
-              >
-                {isCreatingDemo ? (
-                  <>
-                    <Activity className="animate-spin" size={13} />
-                    Creando...
-                  </>
-                ) : (
-                  'Probar con demo UTN-FRLP'
-                )}
-              </button>
-            )}
           </div>
         </div>
       </div>
