@@ -11,17 +11,19 @@ import {
 import Sidebar from './Sidebar.jsx';
 import './dashboard.css';
 import { useData } from './context/DataContext.jsx';
+import { useAuth } from './hooks/useAuth.js';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const {
-    library: activeLibrary,
     stats,
     charts,
-    updateLibrary
+    clearData
   } = useData();
+
+  const { logout } = useAuth();
 
   const {
     prestamosPorMes,
@@ -63,8 +65,8 @@ export default function Dashboard() {
       });
 
       if (ok) {
-        updateLibrary(null); // Clear context
-        localStorage.removeItem('authData');
+        clearData();
+        logout();
         navigate('/');
 
         // Opcional: Asegurar foco después del logout
@@ -74,23 +76,12 @@ export default function Dashboard() {
       console.error('Error en confirmación de logout:', error);
       // Fallback al confirm nativo si hay error
       if (confirm('¿Estás seguro de que quieres cerrar sesión?')) {
-        updateLibrary(null);
-        localStorage.removeItem('authData');
+        clearData();
+        logout();
         navigate('/');
       }
     }
   };
-
-  // Mostrar loading si no hay biblioteca activa
-  if (!activeLibrary) {
-    return (
-      <div className="dashboard-container">
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-          <p style={{ color: 'white', fontSize: '1.2rem' }}>Cargando dashboard...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>
@@ -108,7 +99,7 @@ export default function Dashboard() {
           <div className="dashboard-header">
             <div className="header-content">
               <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
-                {activeLibrary ? activeLibrary.nombre : 'Biblioteca Demo'}
+                Biblioteca UTN - FRLP
               </h1>
               <span className="header-separator">|</span>
               <p className="text-gray-400 text-lg max-w-2xl">

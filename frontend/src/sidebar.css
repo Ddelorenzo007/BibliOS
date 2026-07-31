@@ -321,14 +321,3 @@ body[data-theme="light"] .sidebar-footer {
         padding: 0.6rem;
     }
 }
-
-.logo {
-  display: flex;
-  flex-direction: column;
-}
-
-.logo-subtitle {
-  font-size: 0.72rem;
-  color: var(--text-secondary);
-  line-height: 1.1;
-}

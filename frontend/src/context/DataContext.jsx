@@ -5,7 +5,6 @@ export const DataContext = createContext();
 export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
-    const [library, setLibrary] = useState(null);
     const [libros, setLibros] = useState([]);
     const [socios, setSocios] = useState([]);
     const [prestamos, setPrestamos] = useState([]);
@@ -27,26 +26,21 @@ export const DataProvider = ({ children }) => {
 
     const [loading, setLoading] = useState(true);
 
-    // Load library from local storage on mount
+    // Cargar todos los datos al montar (biblioteca única, no depende de una selección)
     useEffect(() => {
-        const storedLibrary = localStorage.getItem('bibliotecaActiva');
-        if (storedLibrary) {
-            setLibrary(JSON.parse(storedLibrary));
+        if (window.electronAPI) {
+            refreshAll();
+        } else {
+            setLoading(false);
         }
-        setLoading(false);
     }, []);
 
-    // Fetch all data when library changes or on request
-    useEffect(() => {
-        if (library?.id && window.electronAPI) {
-            refreshAll();
-        }
-    }, [library]);
-
     const refreshAll = async () => {
-        if (!library?.id || !window.electronAPI) return;
+        if (!window.electronAPI) return;
 
         try {
+            setLoading(true);
+
             // Parallelize fetches for speed
             const [
                 librosData,
@@ -57,13 +51,13 @@ export const DataProvider = ({ children }) => {
                 librosCatData,
                 sociosMesData
             ] = await Promise.all([
-                window.electronAPI.getLibros(library.id, {}),
-                window.electronAPI.getSocios(library.id, {}),
-                window.electronAPI.getPrestamos(library.id, {}),
-                window.electronAPI.getBibliotecaStats(library.id),
-                window.electronAPI.getPrestamosPorMes(library.id, 6),
-                window.electronAPI.getLibrosPorCategoria(library.id),
-                window.electronAPI.getSociosPorMes(library.id, 6)
+                window.electronAPI.getLibros({}),
+                window.electronAPI.getSocios({}),
+                window.electronAPI.getPrestamos({}),
+                window.electronAPI.getStats(),
+                window.electronAPI.getPrestamosPorMes(6),
+                window.electronAPI.getLibrosPorCategoria(),
+                window.electronAPI.getSociosPorMes(6)
             ]);
 
             setLibros(librosData || []);
@@ -118,13 +112,15 @@ export const DataProvider = ({ children }) => {
 
         } catch (error) {
             console.error("Error refreshing global data:", error);
+        } finally {
+            setLoading(false);
         }
     };
 
     // Granular refresh functions
     const refreshLibros = async () => {
-        if (!library?.id || !window.electronAPI) return;
-        const data = await window.electronAPI.getLibros(library.id, {});
+        if (!window.electronAPI) return;
+        const data = await window.electronAPI.getLibros({});
         setLibros(data || []);
         // Implicitly refresh categories/stats as well? For now simplest is refresh all or just this.
         // Ideally we should refresh contextually related data, but refreshAll is safer for consistency.
@@ -132,37 +128,28 @@ export const DataProvider = ({ children }) => {
     };
 
     const refreshSocios = async () => {
-        if (!library?.id || !window.electronAPI) return;
-        const data = await window.electronAPI.getSocios(library.id, {});
+        if (!window.electronAPI) return;
+        const data = await window.electronAPI.getSocios({});
         setSocios(data || []);
         refreshAll();
     };
 
     const refreshPrestamos = async () => {
-        if (!library?.id || !window.electronAPI) return;
-        const data = await window.electronAPI.getPrestamos(library.id, {});
+        if (!window.electronAPI) return;
+        const data = await window.electronAPI.getPrestamos({});
         setPrestamos(data || []);
         refreshAll();
     };
 
-    const updateLibrary = (newLibrary) => {
-        setLibrary(newLibrary);
-        if (newLibrary) {
-            localStorage.setItem('bibliotecaActiva', JSON.stringify(newLibrary));
-            refreshAll();
-        } else {
-            localStorage.removeItem('bibliotecaActiva');
-            setLibros([]);
-            setSocios([]);
-            setPrestamos([]);
-            setStats({ totalLibros: 0, totalSocios: 0, prestamosActivos: 0, prestamosVencidos: 0, prestamosCompletados: 0 });
-        }
+    const clearData = () => {
+        setLibros([]);
+        setSocios([]);
+        setPrestamos([]);
+        setStats({ totalLibros: 0, totalSocios: 0, prestamosActivos: 0, prestamosVencidos: 0, prestamosCompletados: 0 });
     };
 
     return (
         <DataContext.Provider value={{
-            library,
-            updateLibrary,
             libros,
             socios,
             prestamos,
@@ -172,7 +159,8 @@ export const DataProvider = ({ children }) => {
             refreshAll,
             refreshLibros,
             refreshSocios,
-            refreshPrestamos
+            refreshPrestamos,
+            clearData
         }}>
             {children}
         </DataContext.Provider>

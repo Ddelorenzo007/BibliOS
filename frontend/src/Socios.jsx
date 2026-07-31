@@ -13,7 +13,6 @@ export default function Socios() {
   const {
     socios: sociosRaw,
     prestamos,
-    library,
     refreshSocios
   } = useData();
 
@@ -100,18 +99,6 @@ export default function Socios() {
     e.preventDefault();
 
     try {
-      // Obtener biblioteca activa
-      const storedLibrary = localStorage.getItem('bibliotecaActiva');
-      if (!storedLibrary) {
-        await window.nativeDialog.error({
-          message: 'No hay biblioteca activa',
-          detail: 'Por favor, selecciona una biblioteca primero.'
-        });
-        return;
-      }
-
-      const library = JSON.parse(storedLibrary);
-
       // Crear socio en la base de datos
       if (window.electronAPI) {
         const socioData = {
@@ -119,8 +106,7 @@ export default function Socios() {
           email: formData.email,
           telefono: formData.telefono,
           direccion: formData.direccion,
-          observaciones: formData.observaciones,
-          bibliotecaId: library.id
+          observaciones: formData.observaciones
         };
 
         await window.electronAPI.createSocio(socioData);

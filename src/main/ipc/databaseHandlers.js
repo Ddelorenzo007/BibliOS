@@ -8,82 +8,22 @@ class DatabaseHandlers {
     }
 
     setupHandlers() {
-        // ===== MANEJADORES DE BIBLIOTECAS =====
-        
-        ipcMain.handle('database:createBiblioteca', async (event, bibliotecaData) => {
-            try {
-                return await this.db.createBiblioteca(bibliotecaData);
-            } catch (error) {
-                console.error('Error en createBiblioteca:', error);
-                throw error;
-            }
-        });
+        // ===== MANEJADORES DE AUTENTICACIÓN =====
+        // Autenticación local/ficticia. La entidad externa (superentidad)
+        // que se hará cargo del registro real de usuarios todavía no está
+        // integrada, por eso el login valida contra la tabla local.
 
-        ipcMain.handle('database:getBibliotecas', async () => {
+        ipcMain.handle('database:login', async (event, { usuario, password }) => {
             try {
-                return await this.db.getBibliotecas();
+                return await this.db.login(usuario, password);
             } catch (error) {
-                console.error('Error en getBibliotecas:', error);
-                throw error;
-            }
-        });
-
-        ipcMain.handle('database:getBibliotecaById', async (event, id) => {
-            try {
-                return await this.db.getBibliotecaById(id);
-            } catch (error) {
-                console.error('Error en getBibliotecaById:', error);
-                throw error;
-            }
-        });
-
-        ipcMain.handle('database:getBibliotecaActiva', async () => {
-            try {
-                return await this.db.getBibliotecaActiva();
-            } catch (error) {
-                console.error('Error en getBibliotecaActiva:', error);
-                throw error;
-            }
-        });
-
-        ipcMain.handle('database:updateBiblioteca', async (event, { id, updates }) => {
-            try {
-                return await this.db.updateBiblioteca(id, updates);
-            } catch (error) {
-                console.error('Error en updateBiblioteca:', error);
-                throw error;
-            }
-        });
-
-        ipcMain.handle('database:deleteBiblioteca', async (event, id) => {
-            try {
-                return await this.db.deleteBiblioteca(id);
-            } catch (error) {
-                console.error('Error en deleteBiblioteca:', error);
-                throw error;
-            }
-        });
-
-        ipcMain.handle('database:activateBiblioteca', async (event, id) => {
-            try {
-                return await this.db.activateBiblioteca(id);
-            } catch (error) {
-                console.error('Error en activateBiblioteca:', error);
-                throw error;
-            }
-        });
-
-        ipcMain.handle('database:createUTNLibrary', async () => {
-            try {
-                return await this.db.createUTNLibrary();
-            } catch (error) {
-                console.error('Error en createUTNLibrary:', error);
+                console.error('Error en login:', error);
                 throw error;
             }
         });
 
         // ===== MANEJADORES DE LIBROS =====
-        
+
         ipcMain.handle('database:createLibro', async (event, libroData) => {
             try {
                 return await this.db.createLibro(libroData);
@@ -93,9 +33,9 @@ class DatabaseHandlers {
             }
         });
 
-        ipcMain.handle('database:getLibros', async (event, { bibliotecaId, filters = {} }) => {
+        ipcMain.handle('database:getLibros', async (event, { filters = {} } = {}) => {
             try {
-                return await this.db.getLibros(bibliotecaId, filters);
+                return await this.db.getLibros(filters);
             } catch (error) {
                 console.error('Error en getLibros:', error);
                 throw error;
@@ -130,7 +70,7 @@ class DatabaseHandlers {
         });
 
         // ===== MANEJADORES DE SOCIOS =====
-        
+
         ipcMain.handle('database:createSocio', async (event, socioData) => {
             try {
                 return await this.db.createSocio(socioData);
@@ -140,9 +80,9 @@ class DatabaseHandlers {
             }
         });
 
-        ipcMain.handle('database:getSocios', async (event, { bibliotecaId, filters = {} }) => {
+        ipcMain.handle('database:getSocios', async (event, { filters = {} } = {}) => {
             try {
-                return await this.db.getSocios(bibliotecaId, filters);
+                return await this.db.getSocios(filters);
             } catch (error) {
                 console.error('Error en getSocios:', error);
                 throw error;
@@ -177,7 +117,7 @@ class DatabaseHandlers {
         });
 
         // ===== MANEJADORES DE PRÉSTAMOS =====
-        
+
         ipcMain.handle('database:createPrestamo', async (event, prestamoData) => {
             try {
                 return await this.db.createPrestamo(prestamoData);
@@ -187,9 +127,9 @@ class DatabaseHandlers {
             }
         });
 
-        ipcMain.handle('database:getPrestamos', async (event, { bibliotecaId, filters = {} }) => {
+        ipcMain.handle('database:getPrestamos', async (event, { filters = {} } = {}) => {
             try {
-                return await this.db.getPrestamos(bibliotecaId, filters);
+                return await this.db.getPrestamos(filters);
             } catch (error) {
                 console.error('Error en getPrestamos:', error);
                 throw error;
@@ -233,37 +173,37 @@ class DatabaseHandlers {
         });
 
         // ===== MANEJADORES DE ESTADÍSTICAS =====
-        
-        ipcMain.handle('database:getBibliotecaStats', async (event, bibliotecaId) => {
+
+        ipcMain.handle('database:getStats', async () => {
             try {
-                return await this.db.getBibliotecaStats(bibliotecaId);
+                return await this.db.getStats();
             } catch (error) {
-                console.error('Error en getBibliotecaStats:', error);
+                console.error('Error en getStats:', error);
                 throw error;
             }
         });
 
-        ipcMain.handle('database:getPrestamosPorMes', async (event, { bibliotecaId, meses = 6 }) => {
+        ipcMain.handle('database:getPrestamosPorMes', async (event, { meses = 6 } = {}) => {
             try {
-                return await this.db.getPrestamosPorMes(bibliotecaId, meses);
+                return await this.db.getPrestamosPorMes(meses);
             } catch (error) {
                 console.error('Error en getPrestamosPorMes:', error);
                 throw error;
             }
         });
 
-        ipcMain.handle('database:getLibrosPorCategoria', async (event, bibliotecaId) => {
+        ipcMain.handle('database:getLibrosPorCategoria', async () => {
             try {
-                return await this.db.getLibrosPorCategoria(bibliotecaId);
+                return await this.db.getLibrosPorCategoria();
             } catch (error) {
                 console.error('Error en getLibrosPorCategoria:', error);
                 throw error;
             }
         });
 
-        ipcMain.handle('database:getSociosPorMes', async (event, { bibliotecaId, meses = 6 }) => {
+        ipcMain.handle('database:getSociosPorMes', async (event, { meses = 6 } = {}) => {
             try {
-                return await this.db.getSociosPorMes(bibliotecaId, meses);
+                return await this.db.getSociosPorMes(meses);
             } catch (error) {
                 console.error('Error en getSociosPorMes:', error);
                 throw error;
@@ -271,7 +211,7 @@ class DatabaseHandlers {
         });
 
         // ===== MANEJADORES DE UTILIDADES =====
-        
+
         ipcMain.handle('database:backup', async (event, destinationPath) => {
             try {
                 return await this.db.backup(destinationPath);
@@ -291,11 +231,11 @@ class DatabaseHandlers {
             }
         });
 
-        // ===== MANEJADORES DE DATOS DE EJEMPLO =====
-        
-        ipcMain.handle('database:insertSampleData', async (event, bibliotecaId) => {
+        // ===== MANEJADORES DE DATOS FICTICIOS DE DEMOSTRACIÓN =====
+
+        ipcMain.handle('database:insertSampleData', async () => {
             try {
-                return await this.db.insertSampleData(bibliotecaId);
+                return await this.db.insertSampleData();
             } catch (error) {
                 console.error('Error en insertSampleData:', error);
                 throw error;
@@ -303,7 +243,7 @@ class DatabaseHandlers {
         });
 
         // ===== MANEJADORES DE VENTANA =====
-        
+
         ipcMain.handle('window:focus', async () => {
             try {
                 const { BrowserWindow } = require('electron');
@@ -324,42 +264,36 @@ class DatabaseHandlers {
     // Método para limpiar todos los manejadores
     cleanup() {
         // Remover todos los manejadores IPC
-        ipcMain.removeHandler('database:createBiblioteca');
-        ipcMain.removeHandler('database:getBibliotecas');
-        ipcMain.removeHandler('database:getBibliotecaById');
-        ipcMain.removeHandler('database:getBibliotecaActiva');
-        ipcMain.removeHandler('database:updateBiblioteca');
-        ipcMain.removeHandler('database:deleteBiblioteca');
-        ipcMain.removeHandler('database:activateBiblioteca');
-        
+        ipcMain.removeHandler('database:login');
+
         ipcMain.removeHandler('database:createLibro');
         ipcMain.removeHandler('database:getLibros');
         ipcMain.removeHandler('database:getLibroById');
         ipcMain.removeHandler('database:updateLibro');
         ipcMain.removeHandler('database:deleteLibro');
-        
+
         ipcMain.removeHandler('database:createSocio');
         ipcMain.removeHandler('database:getSocios');
         ipcMain.removeHandler('database:getSocioById');
         ipcMain.removeHandler('database:updateSocio');
         ipcMain.removeHandler('database:deleteSocio');
-        
+
         ipcMain.removeHandler('database:createPrestamo');
         ipcMain.removeHandler('database:getPrestamos');
         ipcMain.removeHandler('database:getPrestamoById');
         ipcMain.removeHandler('database:devolverLibro');
         ipcMain.removeHandler('database:updatePrestamo');
         ipcMain.removeHandler('database:deletePrestamo');
-        
-        ipcMain.removeHandler('database:getBibliotecaStats');
+
+        ipcMain.removeHandler('database:getStats');
         ipcMain.removeHandler('database:getPrestamosPorMes');
         ipcMain.removeHandler('database:getLibrosPorCategoria');
         ipcMain.removeHandler('database:getSociosPorMes');
-        
+
         ipcMain.removeHandler('database:backup');
         ipcMain.removeHandler('database:close');
         ipcMain.removeHandler('database:insertSampleData');
-        
+
         ipcMain.removeHandler('window:focus');
     }
 }

@@ -23,8 +23,6 @@ export default function Sidebar({ isOpen, onClose }) {
   const confirmLogout = async () => {
     setIsLogoutModalOpen(false);
     onClose();
-    localStorage.removeItem('bibliotecaActiva');
-    localStorage.removeItem('authData');
     logout();
     navigate('/');
   };

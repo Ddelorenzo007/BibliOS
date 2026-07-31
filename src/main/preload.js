@@ -2,39 +2,12 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // Exponer APIs de base de datos al frontend
 contextBridge.exposeInMainWorld('electronAPI', {
-    // ===== APIS DE BIBLIOTECAS =====
-    
-    // Crear nueva biblioteca
-    createBiblioteca: (bibliotecaData) => 
-        ipcRenderer.invoke('database:createBiblioteca', bibliotecaData),
-    
-    // Obtener todas las bibliotecas
-    getBibliotecas: () => 
-        ipcRenderer.invoke('database:getBibliotecas'),
-    
-    // Obtener biblioteca por ID
-    getBibliotecaById: (id) => 
-        ipcRenderer.invoke('database:getBibliotecaById', id),
-    
-    // Obtener biblioteca activa
-    getBibliotecaActiva: () => 
-        ipcRenderer.invoke('database:getBibliotecaActiva'),
-    
-    // Actualizar biblioteca
-    updateBiblioteca: (id, updates) => 
-        ipcRenderer.invoke('database:updateBiblioteca', { id, updates }),
-    
-    // Eliminar biblioteca
-    deleteBiblioteca: (id) => 
-        ipcRenderer.invoke('database:deleteBiblioteca', id),
-    
-    // Activar biblioteca
-    activateBiblioteca: (id) => 
-        ipcRenderer.invoke('database:activateBiblioteca', id),
-    
-    // Crear biblioteca UTN-FRLP con datos de muestra
-    createUTNLibrary: () => 
-        ipcRenderer.invoke('database:createUTNLibrary'),
+    // ===== API DE AUTENTICACIÓN =====
+    // Login local/ficticio contra la tabla de usuarios de SQLite, mientras
+    // no exista integración con la entidad externa (superentidad) que
+    // gestionará el registro real de usuarios.
+    login: (usuario, password) =>
+        ipcRenderer.invoke('database:login', { usuario, password }),
 
     // ===== APIS DE LIBROS =====
     
@@ -42,9 +15,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     createLibro: (libroData) => 
         ipcRenderer.invoke('database:createLibro', libroData),
     
-    // Obtener libros de una biblioteca
-    getLibros: (bibliotecaId, filters = {}) => 
-        ipcRenderer.invoke('database:getLibros', { bibliotecaId, filters }),
+    // Obtener libros
+    getLibros: (filters = {}) => 
+        ipcRenderer.invoke('database:getLibros', { filters }),
     
     // Obtener libro por ID
     getLibroById: (id) => 
@@ -64,9 +37,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     createSocio: (socioData) => 
         ipcRenderer.invoke('database:createSocio', socioData),
     
-    // Obtener socios de una biblioteca
-    getSocios: (bibliotecaId, filters = {}) => 
-        ipcRenderer.invoke('database:getSocios', { bibliotecaId, filters }),
+    // Obtener socios
+    getSocios: (filters = {}) => 
+        ipcRenderer.invoke('database:getSocios', { filters }),
     
     // Obtener socio por ID
     getSocioById: (id) => 
@@ -86,9 +59,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     createPrestamo: (prestamoData) => 
         ipcRenderer.invoke('database:createPrestamo', prestamoData),
     
-    // Obtener préstamos de una biblioteca
-    getPrestamos: (bibliotecaId, filters = {}) => 
-        ipcRenderer.invoke('database:getPrestamos', { bibliotecaId, filters }),
+    // Obtener préstamos
+    getPrestamos: (filters = {}) => 
+        ipcRenderer.invoke('database:getPrestamos', { filters }),
     
     // Obtener préstamo por ID
     getPrestamoById: (id) => 
@@ -108,21 +81,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // ===== APIS DE ESTADÍSTICAS =====
     
-    // Obtener estadísticas de la biblioteca
-    getBibliotecaStats: (bibliotecaId) => 
-        ipcRenderer.invoke('database:getBibliotecaStats', bibliotecaId),
+    // Obtener estadísticas generales
+    getStats: () => 
+        ipcRenderer.invoke('database:getStats'),
     
     // Obtener préstamos por mes
-    getPrestamosPorMes: (bibliotecaId, meses = 6) => 
-        ipcRenderer.invoke('database:getPrestamosPorMes', { bibliotecaId, meses }),
+    getPrestamosPorMes: (meses = 6) => 
+        ipcRenderer.invoke('database:getPrestamosPorMes', { meses }),
     
     // Obtener distribución de libros por categoría
-    getLibrosPorCategoria: (bibliotecaId) => 
-        ipcRenderer.invoke('database:getLibrosPorCategoria', bibliotecaId),
+    getLibrosPorCategoria: () => 
+        ipcRenderer.invoke('database:getLibrosPorCategoria'),
 
     // Obtener socios por mes (histórico acumulado)
-    getSociosPorMes: (bibliotecaId, meses = 6) => 
-        ipcRenderer.invoke('database:getSociosPorMes', { bibliotecaId, meses }),
+    getSociosPorMes: (meses = 6) => 
+        ipcRenderer.invoke('database:getSociosPorMes', { meses }),
 
     // ===== APIS DE UTILIDADES =====
     
@@ -134,9 +107,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     close: () => 
         ipcRenderer.invoke('database:close'),
     
-    // Insertar datos de ejemplo
-    insertSampleData: (bibliotecaId) => 
-        ipcRenderer.invoke('database:insertSampleData', bibliotecaId),
+    // Insertar datos ficticios de ejemplo
+    insertSampleData: () => 
+        ipcRenderer.invoke('database:insertSampleData'),
 
     // ===== APIS DE LA APLICACIÓN =====
     

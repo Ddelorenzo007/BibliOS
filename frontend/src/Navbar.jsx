@@ -15,12 +15,7 @@ export default function Navbar() {
     <div className="navbar-simple-wrapper">
       <header className="navbar-simple glass">
         <Link to="/" className="logo">
-          <div className="logo">
-            <span className="logo-text">BibliOS</span>
-            <span className="logo-subtitle">
-              UTN - Facultad Regional La Plata
-            </span>
-          </div>
+          <span className="logo-text">BibliOS</span>
         </Link>
 
         <div className="navbar-actions">
@@ -38,7 +33,7 @@ export default function Navbar() {
             className="navbar-simple-btn login"
           >
             <LogIn size={18} />
-            <span>Iniciar sesión</span>
+            <span>Iniciar Sesión</span>
           </button>
         </div>
       </header>

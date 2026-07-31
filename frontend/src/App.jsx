@@ -6,15 +6,10 @@ import libro from "./assets/libro.png";
 import { Link } from "react-router-dom";
 import Navbar from "./Navbar.jsx";
 import { useEffect } from "react";
-import { initializeMockData } from "./utils/mockData.js";
 
 function App() {
   useEffect(() => {
     document.body.classList.add("home-page-active");
-
-    // Por el momento dejamos los datos mock.
-    // En un sprint posterior eliminaremos completamente esta lógica.
-    initializeMockData();
 
     return () => {
       document.body.classList.remove("home-page-active");

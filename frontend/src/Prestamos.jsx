@@ -14,7 +14,6 @@ export default function Prestamos() {
     prestamos: prestamosRaw,
     libros: librosRaw,
     socios: sociosRaw,
-    library,
     refreshPrestamos
   } = useData();
 
@@ -229,24 +228,11 @@ export default function Prestamos() {
         return;
       }
 
-      // Obtener biblioteca activa
-      const storedLibrary = localStorage.getItem('bibliotecaActiva');
-      if (!storedLibrary) {
-        await window.nativeDialog.error({
-          message: 'No hay biblioteca activa',
-          detail: 'Por favor, selecciona una biblioteca primero.'
-        });
-        return;
-      }
-
-      const library = JSON.parse(storedLibrary);
-
       // Crear préstamo en la base de datos
       if (window.electronAPI) {
         const nuevoPrestamo = await window.electronAPI.createPrestamo({
           libroId: parseInt(formData.libroId),
           socioId: parseInt(formData.socioId),
-          bibliotecaId: library.id,
           fechaPrestamo: fechaPrestamo,
           fechaDevolucion: fechaDevolucion,
           observaciones: formData.observaciones || null

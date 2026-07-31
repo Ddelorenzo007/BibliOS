@@ -15,7 +15,6 @@ export default function Libros() {
   const {
     libros: librosRaw,
     prestamos,
-    library,
     refreshLibros
   } = useData();
 
@@ -175,18 +174,6 @@ export default function Libros() {
     e.preventDefault();
 
     try {
-      // Obtener biblioteca activa
-      const storedLibrary = localStorage.getItem('bibliotecaActiva');
-      if (!storedLibrary) {
-        await window.nativeDialog.error({
-          message: 'No hay biblioteca activa',
-          detail: 'Por favor, selecciona una biblioteca primero.'
-        });
-        return;
-      }
-
-      const library = JSON.parse(storedLibrary);
-
       // Crear libro en la base de datos
       if (window.electronAPI) {
         const newLibro = await window.electronAPI.createLibro({
@@ -204,8 +191,7 @@ export default function Libros() {
           paginas: formData.paginas ? parseInt(formData.paginas) : null,
           clasificacion: formData.clasificacion || null,
           ubicacion: formData.ubicacion || null,
-          descripcion: formData.descripcion || null,
-          bibliotecaId: library.id
+          descripcion: formData.descripcion || null
         });
 
         // Actualizar contexto global
