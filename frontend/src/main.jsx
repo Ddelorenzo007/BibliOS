@@ -6,7 +6,7 @@ import Login from './Login.jsx';
 import Prestamos from './Prestamos.jsx';
 import Dashboard from './Dashboard.jsx';
 import Socios from './Socios.jsx';
-import Libros from './Libros.jsx';
+import Obras from './Obras.jsx';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import { DataProvider } from './context/DataContext.jsx';
@@ -22,7 +22,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/prestamos" element={<ProtectedRoute><Prestamos /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/socios" element={<ProtectedRoute><Socios /></ProtectedRoute>} />
-          <Route path="/libros" element={<ProtectedRoute><Libros /></ProtectedRoute>} />
+          <Route path="/obras" element={<ProtectedRoute><Obras /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </DataProvider>

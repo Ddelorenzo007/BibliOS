@@ -5,23 +5,27 @@ export const DataContext = createContext();
 export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
-    const [libros, setLibros] = useState([]);
+    const [obras, setObras] = useState([]);
     const [socios, setSocios] = useState([]);
     const [prestamos, setPrestamos] = useState([]);
+    const [reservas, setReservas] = useState([]);
     const [stats, setStats] = useState({
-        totalLibros: 0,
+        totalObras: 0,
+        totalEjemplares: 0,
+        ejemplaresDisponibles: 0,
         totalSocios: 0,
         prestamosActivos: 0,
         prestamosVencidos: 0,
-        prestamosCompletados: 0
+        prestamosDevueltos: 0,
+        reservasPendientes: 0,
+        sancionesVigentes: 0
     });
 
     // Chart Data
     const [charts, setCharts] = useState({
         prestamosPorMes: [],
-        librosPorCategoria: [],
-        sociosActivos: [],
-        prestamosProximosAVencer: 0
+        obrasPorCategoria: [],
+        sociosActivos: []
     });
 
     const [loading, setLoading] = useState(true);
@@ -41,47 +45,57 @@ export const DataProvider = ({ children }) => {
         try {
             setLoading(true);
 
-            // Parallelize fetches for speed
+            // Antes de traer los préstamos, marcamos como vencidos los que
+            // ya pasaron su fecha prevista (no hay cron: se resuelve al
+            // pedirlos, que es como el resto de la app ya funciona)
+            await window.electronAPI.actualizarPrestamosVencidos();
+
             const [
-                librosData,
+                obrasData,
                 sociosData,
                 prestamosData,
+                reservasData,
                 statsData,
                 prestamosMesData,
-                librosCatData,
+                obrasCategoriaData,
                 sociosMesData
             ] = await Promise.all([
-                window.electronAPI.getLibros({}),
+                window.electronAPI.getObras({}),
                 window.electronAPI.getSocios({}),
                 window.electronAPI.getPrestamos({}),
+                window.electronAPI.getReservas({}),
                 window.electronAPI.getStats(),
                 window.electronAPI.getPrestamosPorMes(6),
-                window.electronAPI.getLibrosPorCategoria(),
+                window.electronAPI.getObrasPorCategoria(),
                 window.electronAPI.getSociosPorMes(6)
             ]);
 
-            setLibros(librosData || []);
+            setObras(obrasData || []);
             setSocios(sociosData || []);
             setPrestamos(prestamosData || []);
+            setReservas(reservasData || []);
 
             if (statsData) {
                 setStats({
-                    totalLibros: statsData.totalLibros || 0,
+                    totalObras: statsData.totalObras || 0,
+                    totalEjemplares: statsData.totalEjemplares || 0,
+                    ejemplaresDisponibles: statsData.ejemplaresDisponibles || 0,
                     totalSocios: statsData.totalSocios || 0,
                     prestamosActivos: statsData.prestamosActivos || 0,
                     prestamosVencidos: statsData.prestamosVencidos || 0,
-                    prestamosCompletados: statsData.prestamosCompletados || 0
+                    prestamosDevueltos: statsData.prestamosDevueltos || 0,
+                    reservasPendientes: statsData.reservasPendientes || 0,
+                    sancionesVigentes: statsData.sancionesVigentes || 0
                 });
             }
 
-            // Process Chart Data
             const prestamosFormateados = (prestamosMesData || []).map(item => ({
                 mes: item.mes,
                 prestamos: item.prestamos || 0,
                 devoluciones: item.devoluciones || 0
             }));
 
-            const categoriasFormateadas = (librosCatData || []).map((item, index) => ({
+            const categoriasFormateadas = (obrasCategoriaData || []).map((item, index) => ({
                 name: item.categoria || 'Sin categoría',
                 value: item.cantidad || 0,
                 color: ['#8DA9C4', '#134074', '#c9a368', '#4a5568', '#e8e8e8', '#2a4365'][index % 6]
@@ -92,22 +106,10 @@ export const DataProvider = ({ children }) => {
                 activos: item.totalAcumulado || 0
             }));
 
-            // Calculate proximos a vencer
-            const hoy = new Date();
-            const en3Dias = new Date();
-            en3Dias.setDate(hoy.getDate() + 3);
-
-            const proximosAVencer = (prestamosData || []).filter(prestamo => {
-                if (!prestamo.fechaDevolucion || prestamo.estado !== 'activo') return false;
-                const fechaDevolucion = new Date(prestamo.fechaDevolucion);
-                return fechaDevolucion >= hoy && fechaDevolucion <= en3Dias;
-            }).length;
-
             setCharts({
                 prestamosPorMes: prestamosFormateados,
-                librosPorCategoria: categoriasFormateadas,
-                sociosActivos: sociosActivosFormateados,
-                prestamosProximosAVencer: proximosAVencer
+                obrasPorCategoria: categoriasFormateadas,
+                sociosActivos: sociosActivosFormateados
             });
 
         } catch (error) {
@@ -117,13 +119,11 @@ export const DataProvider = ({ children }) => {
         }
     };
 
-    // Granular refresh functions
-    const refreshLibros = async () => {
+    // Refresh granulares
+    const refreshObras = async () => {
         if (!window.electronAPI) return;
-        const data = await window.electronAPI.getLibros({});
-        setLibros(data || []);
-        // Implicitly refresh categories/stats as well? For now simplest is refresh all or just this.
-        // Ideally we should refresh contextually related data, but refreshAll is safer for consistency.
+        const data = await window.electronAPI.getObras({});
+        setObras(data || []);
         refreshAll();
     };
 
@@ -141,25 +141,39 @@ export const DataProvider = ({ children }) => {
         refreshAll();
     };
 
+    const refreshReservas = async () => {
+        if (!window.electronAPI) return;
+        const data = await window.electronAPI.getReservas({});
+        setReservas(data || []);
+        refreshAll();
+    };
+
     const clearData = () => {
-        setLibros([]);
+        setObras([]);
         setSocios([]);
         setPrestamos([]);
-        setStats({ totalLibros: 0, totalSocios: 0, prestamosActivos: 0, prestamosVencidos: 0, prestamosCompletados: 0 });
+        setReservas([]);
+        setStats({
+            totalObras: 0, totalEjemplares: 0, ejemplaresDisponibles: 0, totalSocios: 0,
+            prestamosActivos: 0, prestamosVencidos: 0, prestamosDevueltos: 0,
+            reservasPendientes: 0, sancionesVigentes: 0
+        });
     };
 
     return (
         <DataContext.Provider value={{
-            libros,
+            obras,
             socios,
             prestamos,
+            reservas,
             stats,
             charts,
             loading,
             refreshAll,
-            refreshLibros,
+            refreshObras,
             refreshSocios,
             refreshPrestamos,
+            refreshReservas,
             clearData
         }}>
             {children}

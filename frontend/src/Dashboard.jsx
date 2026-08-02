@@ -20,6 +20,7 @@ export default function Dashboard() {
   const {
     stats,
     charts,
+    prestamos,
     clearData
   } = useData();
 
@@ -27,10 +28,22 @@ export default function Dashboard() {
 
   const {
     prestamosPorMes,
-    librosPorCategoria,
-    sociosActivos,
-    prestamosProximosAVencer
+    obrasPorCategoria,
+    sociosActivos
   } = charts;
+
+  // Préstamos activos que vencen en los próximos 3 días (se calcula acá,
+  // no en el contexto, porque solo lo necesita esta pantalla)
+  const prestamosProximosAVencer = React.useMemo(() => {
+    const hoy = new Date();
+    const en3Dias = new Date();
+    en3Dias.setDate(hoy.getDate() + 3);
+    return (prestamos || []).filter(p => {
+      if (!p.fechaDevolucionPrevista || p.estado !== 'activo') return false;
+      const fecha = new Date(p.fechaDevolucionPrevista);
+      return fecha >= hoy && fecha <= en3Dias;
+    }).length;
+  }, [prestamos]);
 
   const StatCard = ({ icon: Icon, title, value, color, change }) => (
     <div className="stat-card">
@@ -113,8 +126,8 @@ export default function Dashboard() {
         <section className="stats-grid">
           <StatCard
             icon={BookOpen}
-            title="Total Libros"
-            value={stats.totalLibros}
+            title="Total Obras"
+            value={stats.totalObras}
             color="#8DA9C4"
           />
           <StatCard
@@ -217,17 +230,17 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Gráfico de libros por categoría */}
+          {/* Gráfico de obras por categoría */}
           <div className="chart-card">
             <div className="chart-header">
               <PieChartIcon size={18} strokeWidth={1.5} color="var(--accent-primary)" />
-              <h3>Distribución de Libros por Categoría</h3>
+              <h3>Distribución de Obras por Categoría</h3>
             </div>
-            {librosPorCategoria.length > 0 ? (
+            {obrasPorCategoria.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <Pie
-                    data={librosPorCategoria}
+                    data={obrasPorCategoria}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -236,7 +249,7 @@ export default function Dashboard() {
                     dataKey="value"
                     stroke="none"
                   >
-                    {librosPorCategoria.map((entry, index) => (
+                    {obrasPorCategoria.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -252,7 +265,7 @@ export default function Dashboard() {
                       padding: '12px'
                     }}
                     itemStyle={{ color: '#e8e8e8' }}
-                    formatter={(value, name) => [`${value} libros`, name]}
+                    formatter={(value, name) => [`${value} obras`, name]}
                   />
                   <Legend
                     layout="vertical"
@@ -265,7 +278,7 @@ export default function Dashboard() {
               </ResponsiveContainer>
             ) : (
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px', color: '#9ca3af' }}>
-                <p>No hay libros registrados</p>
+                <p>No hay obras registradas</p>
               </div>
             )}
           </div>
@@ -377,7 +390,7 @@ export default function Dashboard() {
               <CheckCircle size={18} strokeWidth={1.5} />
               <div>
                 <h4>Devoluciones Exitosas</h4>
-                <p>{stats.prestamosCompletados} préstamos completados este mes</p>
+                <p>{stats.prestamosDevueltos} préstamos completados este mes</p>
               </div>
             </div>
           </div>
@@ -386,4 +399,4 @@ export default function Dashboard() {
 
     </>
   );
-} 
+}

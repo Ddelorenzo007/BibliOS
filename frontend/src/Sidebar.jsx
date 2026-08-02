@@ -61,9 +61,9 @@ export default function Sidebar({ isOpen, onClose }) {
             <Users size={20} />
             <span>Socios</span>
           </Link>
-          <Link to="/libros" className={`nav-item ${isActive('/libros')}`}>
+          <Link to="/obras" className={`nav-item ${isActive('/obras')}`}>
             <Book size={20} />
-            <span>Libros</span>
+            <span>Obras</span>
           </Link>
         </nav>
 

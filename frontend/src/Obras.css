@@ -915,3 +915,150 @@ button:hover {
 .confirm-btn.delete:hover {
   background: #dc2626;
 }
+/* ===== Extras para el módulo Obras (autores dinámicos, tomos, ejemplares) =====
+   Reutiliza exactamente el mismo estilo que ".form-group input" y
+   ".cancel-button" en vez de inventar una paleta nueva, para que no se
+   note la costura entre el formulario viejo y los campos nuevos. */
+
+.autor-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+}
+
+.autor-row input,
+.add-ejemplar-form input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+/* Los <select> nativos no heredan bien un fondo transparente: el
+   desplegable lo renderiza el sistema operativo, así que necesitan un
+   fondo sólido explícito (mismo que usa el resto de la app para inputs) */
+.autor-row select,
+.add-ejemplar-form select,
+.ejemplar-estado-select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--input-bg);
+  color: var(--input-text);
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.autor-row select option,
+.add-ejemplar-form select option,
+.ejemplar-estado-select option {
+  background-color: var(--input-bg);
+  color: var(--input-text);
+}
+
+.autor-row input:focus,
+.autor-row select:focus,
+.autor-row input:hover,
+.autor-row select:hover,
+.add-ejemplar-form input:focus,
+.add-ejemplar-form select:focus,
+.add-ejemplar-form input:hover,
+.add-ejemplar-form select:hover,
+.ejemplar-estado-select:focus,
+.ejemplar-estado-select:hover {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1) !important;
+}
+
+.autor-row input::placeholder,
+.add-ejemplar-form input::placeholder {
+  color: var(--text-secondary);
+}
+
+.remove-autor-btn,
+.add-autor-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.4rem;
+  height: 40px !important;
+  padding: 0 1rem !important;
+  border-radius: 8px !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  cursor: pointer;
+  box-sizing: border-box !important;
+  white-space: nowrap !important;
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  transition: all 0.3s ease;
+}
+
+.remove-autor-btn:hover,
+.add-autor-btn:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: var(--text-primary) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.remove-autor-btn {
+  width: 40px;
+  padding: 0 !important;
+  color: #ef4444 !important;
+}
+
+.tomo-block {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  background: transparent;
+  backdrop-filter: blur(10px);
+}
+
+.tomo-block h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.ejemplar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  gap: 0.5rem;
+}
+
+.ejemplar-row:last-child {
+  border-bottom: none;
+}
+
+.ejemplar-estado-select {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.5rem;
+}
+
+.add-ejemplar-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.add-ejemplar-form input,
+.add-ejemplar-form select {
+  flex: 1;
+  min-width: 120px;
+}
