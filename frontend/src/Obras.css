@@ -313,8 +313,8 @@ button:hover {
   gap: 1rem;
   padding: 0.5rem 1rem;
   margin: 0.5rem 0;
-  background: var(--bg-accent-alpha);
-  border: 1px solid var(--border-accent-alpha);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   backdrop-filter: blur(10px);
 }
