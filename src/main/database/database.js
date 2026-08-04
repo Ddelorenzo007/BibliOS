@@ -999,7 +999,24 @@ class DatabaseService {
 
             const ejemplar = this.db.prepare('SELECT * FROM ejemplares WHERE id = ?').get(data.ejemplarId);
             if (!ejemplar) throw new Error('El ejemplar especificado no existe');
-            if (ejemplar.estado !== 'disponible') throw new Error(`El ejemplar no está disponible (estado actual: ${ejemplar.estado})`);
+
+            let reservaACerrar = null;
+            if (ejemplar.estado !== 'disponible') {
+                // Único caso permitido: el ejemplar está "reservado" y coincide
+                // exactamente con la reserva pendiente de este socio (viene del
+                // flujo "entregar reserva"). Cualquier otro estado, o una
+                // reserva que no sea de este socio, sigue bloqueado.
+                reservaACerrar = ejemplar.estado === 'reservado'
+                    ? this.db.prepare(`
+                        SELECT id FROM reservas
+                        WHERE ejemplarAsignadoId = ? AND socioId = ? AND estado = 'pendiente'
+                    `).get(data.ejemplarId, data.socioId)
+                    : null;
+
+                if (!reservaACerrar) {
+                    throw new Error(`El ejemplar no está disponible (estado actual: ${ejemplar.estado})`);
+                }
+            }
 
             const fechaDevolucionPrevista = data.fechaDevolucionPrevista || (() => {
                 const f = new Date();
@@ -1013,6 +1030,10 @@ class DatabaseService {
             `).run(data.ejemplarId, data.socioId, data.usuarioId || null, fechaDevolucionPrevista, data.observaciones || null);
 
             this.db.prepare("UPDATE ejemplares SET estado = 'prestado' WHERE id = ?").run(data.ejemplarId);
+
+            if (reservaACerrar) {
+                this.db.prepare("UPDATE reservas SET estado = 'atendida', fechaAtencion = CURRENT_TIMESTAMP WHERE id = ?").run(reservaACerrar.id);
+            }
 
             return result.lastInsertRowid;
         });
@@ -1080,8 +1101,15 @@ class DatabaseService {
                     SELECT ej.*, t.obraId FROM ejemplares ej JOIN tomos t ON ej.tomoId = t.id WHERE ej.id = ?
                 `).get(prestamo.ejemplarId);
 
+                // IMPORTANTE: excluir reservas que YA tienen un ejemplar
+                // asignado (ejemplarAsignadoId IS NOT NULL). Sin este filtro,
+                // si se devuelven 2 ejemplares de una obra con 1 sola reserva
+                // pendiente, la misma reserva se reasigna dos veces y los 2
+                // ejemplares quedan "reservado" en vez de 1 solo.
                 const reservaPendiente = ejemplar ? this.db.prepare(`
-                    SELECT * FROM reservas WHERE obraId = ? AND estado = 'pendiente' ORDER BY prioridad ASC LIMIT 1
+                    SELECT * FROM reservas
+                    WHERE obraId = ? AND estado = 'pendiente' AND ejemplarAsignadoId IS NULL
+                    ORDER BY prioridad ASC LIMIT 1
                 `).get(ejemplar.obraId) : null;
 
                 if (reservaPendiente) {
