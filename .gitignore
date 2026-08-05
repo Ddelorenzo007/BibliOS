@@ -1,8 +1,29 @@
-# Ignorar node_modules y otros archivos temporales
+# Dependencias
 node_modules/
+frontend/node_modules/
+
+# Builds
 dist/
+frontend/dist/
+build/
+release/
+
+# Base de datos local de desarrollo (datos ficticios, no se versiona)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Logs
 *.log
-.DS_Store
 npm-debug.log*
+
+# Entorno
 .env
-BibliOS.rar
+.env.local
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
