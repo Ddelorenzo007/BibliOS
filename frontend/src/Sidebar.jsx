@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LogOut, Sun, Moon, LayoutDashboard, Repeat, Users, Book
+  LogOut, Sun, Moon, LayoutDashboard, Repeat, Users, Book, UserCog
 } from 'lucide-react';
 import './sidebar.css';
 import { useAuth } from './hooks/useAuth.js';
@@ -11,7 +11,7 @@ import LogoutModal from './components/LogoutModal';
 export default function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, currentUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
@@ -65,6 +65,12 @@ export default function Sidebar({ isOpen, onClose }) {
             <Book size={20} />
             <span>Obras</span>
           </Link>
+          {currentUser?.rol === 'administrador' && (
+            <Link to="/usuarios" className={`nav-item ${isActive('/usuarios')}`}>
+              <UserCog size={20} />
+              <span>Usuarios</span>
+            </Link>
+          )}
         </nav>
 
         <div className="sidebar-footer">

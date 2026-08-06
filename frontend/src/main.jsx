@@ -7,10 +7,12 @@ import Prestamos from './Prestamos.jsx';
 import Dashboard from './Dashboard.jsx';
 import Socios from './Socios.jsx';
 import Obras from './Obras.jsx';
+import Usuarios from './Usuarios.jsx';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import { DataProvider } from './context/DataContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import AdminRoute from './components/AdminRoute.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -23,6 +25,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/socios" element={<ProtectedRoute><Socios /></ProtectedRoute>} />
           <Route path="/obras" element={<ProtectedRoute><Obras /></ProtectedRoute>} />
+          <Route path="/usuarios" element={<AdminRoute><Usuarios /></AdminRoute>} />
         </Routes>
       </BrowserRouter>
     </DataProvider>

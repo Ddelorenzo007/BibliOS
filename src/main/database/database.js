@@ -146,6 +146,23 @@ class DatabaseService {
                     this.db.exec('DROP TABLE IF EXISTS obras');
                 }
             }
+
+            // Migración aditiva (no se pierde nada): agregar la columna
+            // "estado" a usuarios si la base es de antes de tener el módulo
+            // de administración de cuentas.
+            const tieneUsuarios = this.db.prepare(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='usuarios'"
+            ).get();
+            if (tieneUsuarios) {
+                const columnasUsuarios = this.db.prepare("PRAGMA table_info(usuarios)").all().map(c => c.name);
+                if (!columnasUsuarios.includes('estado')) {
+                    this.db.exec("ALTER TABLE usuarios ADD COLUMN estado TEXT NOT NULL DEFAULT 'activo'");
+                    console.log('Migración: columna "estado" agregada a usuarios');
+                }
+                // El usuario ficticio "admin" pasa a ser el administrador
+                // que gestiona las cuentas de bibliotecarios, si no lo era ya.
+                this.db.prepare("UPDATE usuarios SET rol = 'administrador' WHERE usuario = 'admin' AND rol != 'administrador'").run();
+            }
         } catch (error) {
             console.error('Error al migrar esquema bibliográfico:', error);
         }
@@ -161,7 +178,8 @@ class DatabaseService {
                     passwordHash TEXT NOT NULL,
                     salt TEXT NOT NULL,
                     nombre TEXT,
-                    rol TEXT NOT NULL DEFAULT 'bibliotecario',
+                    rol TEXT NOT NULL DEFAULT 'bibliotecario' CHECK (rol IN ('administrador','bibliotecario')),
+                    estado TEXT NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo','inactivo')),
                     fechaCreacion DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             `);
@@ -439,7 +457,7 @@ class DatabaseService {
         try {
             const count = this.db.prepare('SELECT COUNT(*) as count FROM usuarios').get().count;
             if (count === 0) {
-                this.createUsuarioSync({ usuario: 'admin', password: 'biblios2026', nombre: 'Administrador BibliOS (ficticio)' });
+                this.createUsuarioSync({ usuario: 'admin', password: 'biblios2026', nombre: 'Administrador BibliOS (ficticio)', rol: 'administrador' });
                 console.log('Usuario ficticio creado -> usuario: "admin" / contraseña: "biblios2026"');
             }
         } catch (error) {
@@ -450,6 +468,9 @@ class DatabaseService {
     createUsuarioSync(usuarioData) {
         Validators.validateRequired(usuarioData.usuario, 'usuario');
         Validators.validateRequired(usuarioData.password, 'password');
+        if (usuarioData.rol && !['administrador', 'bibliotecario'].includes(usuarioData.rol)) {
+            throw new Error('El rol debe ser "administrador" o "bibliotecario"');
+        }
         const existente = this.db.prepare('SELECT id FROM usuarios WHERE usuario = ?').get(usuarioData.usuario);
         if (existente) throw new Error(`Ya existe un usuario con el nombre "${usuarioData.usuario}".`);
         const salt = generateSalt();
@@ -462,15 +483,18 @@ class DatabaseService {
 
     async createUsuario(usuarioData) {
         try {
-            return this.createUsuarioSync(usuarioData);
+            const nuevo = this.createUsuarioSync(usuarioData);
+            this.registrarAuditoria(usuarioData.usuarioCreadorId, 'crear', 'usuarios', nuevo.id, `Usuario "${nuevo.usuario}" creado con rol ${nuevo.rol}`);
+            return nuevo;
         } catch (error) {
+            this.registrarAuditoria(usuarioData.usuarioCreadorId, 'crear', 'usuarios', null, error.message, 'fallo');
             console.error('Error al crear usuario:', error);
             throw error;
         }
     }
 
     getUsuarioById(id) {
-        return this.db.prepare('SELECT id, usuario, nombre, rol, fechaCreacion FROM usuarios WHERE id = ?').get(id);
+        return this.db.prepare('SELECT id, usuario, nombre, rol, estado, fechaCreacion FROM usuarios WHERE id = ?').get(id);
     }
 
     async login(usuario, password) {
@@ -481,9 +505,54 @@ class DatabaseService {
             if (!row) return { success: false, message: 'Usuario o contraseña incorrectos' };
             const hashedInput = hashPassword(password, row.salt);
             if (hashedInput !== row.passwordHash) return { success: false, message: 'Usuario o contraseña incorrectos' };
+            if (row.estado !== 'activo') return { success: false, message: 'Este usuario está inactivo. Contactá al administrador del sistema.' };
             return { success: true, usuario: { id: row.id, usuario: row.usuario, nombre: row.nombre, rol: row.rol } };
         } catch (error) {
             console.error('Error durante el login:', error);
+            throw error;
+        }
+    }
+
+    // ===== GESTIÓN DE USUARIOS (solo accesible para rol "administrador" desde el frontend) =====
+
+    async getUsuarios(filters = {}) {
+        let query = 'SELECT id, usuario, nombre, rol, estado, fechaCreacion FROM usuarios WHERE 1=1';
+        const params = [];
+        if (filters.rol) { query += ' AND rol = ?'; params.push(filters.rol); }
+        if (filters.estado) { query += ' AND estado = ?'; params.push(filters.estado); }
+        query += ' ORDER BY usuario ASC';
+        return this.db.prepare(query).all(...params);
+    }
+
+    // Activa/desactiva una cuenta. Protege contra dejar el sistema sin
+    // ningún administrador activo (nadie podría volver a habilitar cuentas).
+    async toggleEstadoUsuario(id, nuevoEstado, usuarioQueLoHace) {
+        try {
+            if (!['activo', 'inactivo'].includes(nuevoEstado)) {
+                throw new Error('Estado inválido');
+            }
+            const usuario = this.db.prepare('SELECT * FROM usuarios WHERE id = ?').get(id);
+            if (!usuario) throw new Error('Usuario no encontrado');
+
+            if (id === usuarioQueLoHace && nuevoEstado === 'inactivo') {
+                throw new Error('No podés desactivar tu propia cuenta mientras estás logueado con ella');
+            }
+
+            if (usuario.rol === 'administrador' && nuevoEstado === 'inactivo') {
+                const otrosAdminsActivos = this.db.prepare(
+                    "SELECT COUNT(*) as count FROM usuarios WHERE rol = 'administrador' AND estado = 'activo' AND id != ?"
+                ).get(id).count;
+                if (otrosAdminsActivos === 0) {
+                    throw new Error('No se puede desactivar: es el único administrador activo del sistema');
+                }
+            }
+
+            this.db.prepare('UPDATE usuarios SET estado = ? WHERE id = ?').run(nuevoEstado, id);
+            this.registrarAuditoria(usuarioQueLoHace, nuevoEstado === 'activo' ? 'activar' : 'desactivar', 'usuarios', id, `Usuario "${usuario.usuario}" -> ${nuevoEstado}`);
+            return true;
+        } catch (error) {
+            this.registrarAuditoria(usuarioQueLoHace, 'cambiar_estado', 'usuarios', id, error.message, 'fallo');
+            console.error('Error al cambiar estado de usuario:', error);
             throw error;
         }
     }

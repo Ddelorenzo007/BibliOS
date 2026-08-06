@@ -5,6 +5,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     login: (usuario, password) =>
         ipcRenderer.invoke('database:login', { usuario, password }),
 
+    // ===== GESTIÓN DE USUARIOS (rol administrador) =====
+    getUsuarios: (filters = {}) =>
+        ipcRenderer.invoke('database:getUsuarios', { filters }),
+    createUsuario: (usuarioData) =>
+        ipcRenderer.invoke('database:createUsuario', usuarioData),
+    toggleEstadoUsuario: (id, nuevoEstado, usuarioQueLoHace) =>
+        ipcRenderer.invoke('database:toggleEstadoUsuario', { id, nuevoEstado, usuarioQueLoHace }),
+
     // ===== PERSONAS =====
     getPersonas: (filters = {}) =>
         ipcRenderer.invoke('database:getPersonas', { filters }),

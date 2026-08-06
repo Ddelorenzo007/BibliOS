@@ -13,6 +13,17 @@ class DatabaseHandlers {
             return await this.db.login(usuario, password);
         });
 
+        // ===== GESTIÓN DE USUARIOS (rol administrador) =====
+        ipcMain.handle('database:getUsuarios', async (event, { filters = {} } = {}) => {
+            return await this.db.getUsuarios(filters);
+        });
+        ipcMain.handle('database:createUsuario', async (event, usuarioData) => {
+            return await this.db.createUsuario(usuarioData);
+        });
+        ipcMain.handle('database:toggleEstadoUsuario', async (event, { id, nuevoEstado, usuarioQueLoHace }) => {
+            return await this.db.toggleEstadoUsuario(id, nuevoEstado, usuarioQueLoHace);
+        });
+
         // ===== PERSONAS (autores/responsables) =====
         ipcMain.handle('database:getPersonas', async (event, { filters = {} } = {}) => {
             return await this.db.getPersonas(filters);
@@ -181,6 +192,7 @@ class DatabaseHandlers {
     cleanup() {
         const canales = [
             'database:login',
+            'database:getUsuarios', 'database:createUsuario', 'database:toggleEstadoUsuario',
             'database:getPersonas',
             'database:createObra', 'database:getObras', 'database:getObraById', 'database:updateObra', 'database:darDeBajaObra',
             'database:createTomo', 'database:getTomosByObra',
