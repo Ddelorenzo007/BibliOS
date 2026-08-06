@@ -8,6 +8,9 @@ import Dashboard from './Dashboard.jsx';
 import Socios from './Socios.jsx';
 import Obras from './Obras.jsx';
 import Usuarios from './Usuarios.jsx';
+import Documentos from './Documentos.jsx';
+import Ingresos from './Ingresos.jsx';
+import Auditoria from './Auditoria.jsx';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import { DataProvider } from './context/DataContext.jsx';
@@ -26,6 +29,9 @@ createRoot(document.getElementById('root')).render(
           <Route path="/socios" element={<ProtectedRoute><Socios /></ProtectedRoute>} />
           <Route path="/obras" element={<ProtectedRoute><Obras /></ProtectedRoute>} />
           <Route path="/usuarios" element={<AdminRoute><Usuarios /></AdminRoute>} />
+          <Route path="/documentos" element={<ProtectedRoute><Documentos /></ProtectedRoute>} />
+          <Route path="/ingresos" element={<ProtectedRoute><Ingresos /></ProtectedRoute>} />
+          <Route path="/auditoria" element={<AdminRoute><Auditoria /></AdminRoute>} />
         </Routes>
       </BrowserRouter>
     </DataProvider>
