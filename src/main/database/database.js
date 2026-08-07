@@ -429,6 +429,26 @@ class DatabaseService {
                 CREATE INDEX IF NOT EXISTS idx_documentos_estado ON documentos_institucionales(estado);
             `);
 
+            // Índice único para legajo (permite múltiples NULL, pero no
+            // legajos repetidos entre sí). Va aparte del exec() de arriba
+            // porque, si ya existen duplicados cargados de antes de esta
+            // validación, no queremos que rompa el arranque de la app: se
+            // avisa por consola y hay que corregir los duplicados a mano
+            // (editando uno de los socios repetidos) para que el índice
+            // se termine de crear en el siguiente arranque.
+            try {
+                this.db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_socios_legajo_unique ON socios(legajo)');
+            } catch (error) {
+                console.warn('======================================================================');
+                console.warn('AVISO: no se pudo crear el índice único de "legajo" en socios porque ya');
+                console.warn('existen legajos duplicados cargados. La validación en la aplicación ya');
+                console.warn('bloquea nuevos duplicados, pero para que quede también protegido a nivel');
+                console.warn('de base de datos hay que corregir manualmente los socios con legajo');
+                console.warn('repetido (editando uno de los dos) y reiniciar la app.');
+                console.warn('Detalle técnico:', error.message);
+                console.warn('======================================================================');
+            }
+
             console.log('Tablas creadas correctamente (esquema bibliográfico ampliado)');
         } catch (error) {
             console.error('Error al crear tablas:', error);
@@ -462,7 +482,7 @@ class DatabaseService {
         if (filters.usuarioId) { query += ' AND a.usuarioId = ?'; params.push(filters.usuarioId); }
         if (filters.fechaDesde) { query += ' AND a.fecha >= ?'; params.push(filters.fechaDesde); }
         if (filters.fechaHasta) { query += ' AND a.fecha <= ?'; params.push(filters.fechaHasta); }
-        query += ' ORDER BY a.fecha DESC';
+        query += ' ORDER BY a.fecha DESC, a.id DESC';
         if (filters.limit) { query += ' LIMIT ?'; params.push(filters.limit); }
         return this.db.prepare(query).all(...params);
     }
@@ -656,15 +676,24 @@ class DatabaseService {
             SELECT o.*,
                    (SELECT COUNT(*) FROM tomos t WHERE t.obraId = o.id) as cantidadTomos,
                    (SELECT COUNT(*) FROM ejemplares e JOIN tomos t2 ON e.tomoId = t2.id WHERE t2.obraId = o.id) as cantidadEjemplares,
-                   (SELECT COUNT(*) FROM ejemplares e JOIN tomos t3 ON e.tomoId = t3.id WHERE t3.obraId = o.id AND e.estado = 'disponible') as ejemplaresDisponibles
+                   (SELECT COUNT(*) FROM ejemplares e JOIN tomos t3 ON e.tomoId = t3.id WHERE t3.obraId = o.id AND e.estado = 'disponible') as ejemplaresDisponibles,
+                   (SELECT GROUP_CONCAT(TRIM(p.nombre || ' ' || IFNULL(p.apellido, '')), ', ')
+                      FROM obra_personas op JOIN personas p ON op.personaId = p.id
+                      WHERE op.obraId = o.id) as autoresTexto
             FROM obras o
             WHERE 1=1
         `;
         const params = [];
         if (filters.search) {
-            query += ' AND (o.titulo LIKE ? OR o.subtitulo LIKE ? OR o.isbn LIKE ?)';
+            query += ` AND (
+                o.titulo LIKE ? OR o.subtitulo LIKE ? OR o.isbn LIKE ? OR
+                o.id IN (
+                    SELECT op.obraId FROM obra_personas op JOIN personas p ON op.personaId = p.id
+                    WHERE p.nombre LIKE ? OR p.apellido LIKE ?
+                )
+            )`;
             const s = `%${filters.search}%`;
-            params.push(s, s, s);
+            params.push(s, s, s, s, s);
         }
         if (filters.isbn) { query += ' AND o.isbn = ?'; params.push(filters.isbn); }
         if (filters.categoria) { query += ' AND o.categoria = ?'; params.push(filters.categoria); }
@@ -895,6 +924,11 @@ class DatabaseService {
             const emailDuplicado = this.db.prepare('SELECT id FROM socios WHERE LOWER(TRIM(email)) = ?').get(emailNormalizado);
             if (emailDuplicado) throw new Error(`Ya existe un socio con el email "${socioData.email}".`);
 
+            if (socioData.legajo) {
+                const legajoDuplicado = this.db.prepare('SELECT id FROM socios WHERE legajo = ?').get(socioData.legajo);
+                if (legajoDuplicado) throw new Error(`Ya existe un socio con el legajo "${socioData.legajo}".`);
+            }
+
             const result = this.db.prepare(`
                 INSERT INTO socios (nombre, apellido, dni, legajo, tipoSocio, email, telefono, direccion, observaciones)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -941,6 +975,10 @@ class DatabaseService {
             if (updates.dni !== undefined) {
                 const existente = this.db.prepare('SELECT id FROM socios WHERE dni = ? AND id != ?').get(updates.dni, id);
                 if (existente) throw new Error(`Ya existe un socio con el DNI "${updates.dni}".`);
+            }
+            if (updates.legajo) {
+                const existente = this.db.prepare('SELECT id FROM socios WHERE legajo = ? AND id != ?').get(updates.legajo, id);
+                if (existente) throw new Error(`Ya existe un socio con el legajo "${updates.legajo}".`);
             }
             if (updates.tipoSocio !== undefined && !Validators.validateTipoSocio(updates.tipoSocio)) {
                 throw new Error('El tipo de socio debe ser alumno, graduado, docente o no_docente');
@@ -1055,7 +1093,7 @@ class DatabaseService {
     }
 
     async getSancionesBySocio(socioId) {
-        return this.db.prepare('SELECT * FROM sanciones WHERE socioId = ? ORDER BY fechaInicio DESC').all(socioId);
+        return this.db.prepare('SELECT * FROM sanciones WHERE socioId = ? ORDER BY fechaInicio DESC, id DESC').all(socioId);
     }
 
     // Chequea si el socio tiene una sanción vigente (por estado Y por fecha,
@@ -1151,7 +1189,7 @@ class DatabaseService {
         if (filters.socioId) { query += ' AND p.socioId = ?'; params.push(filters.socioId); }
         if (filters.fechaDesde) { query += ' AND p.fechaPrestamo >= ?'; params.push(filters.fechaDesde); }
         if (filters.fechaHasta) { query += ' AND p.fechaPrestamo <= ?'; params.push(filters.fechaHasta); }
-        query += ' ORDER BY p.fechaPrestamo DESC';
+        query += ' ORDER BY p.fechaPrestamo DESC, p.id DESC';
         return this.db.prepare(query).all(...params);
     }
 
@@ -1382,7 +1420,7 @@ class DatabaseService {
         if (filters.socioId) { query += ' AND i.socioId = ?'; params.push(filters.socioId); }
         if (filters.fechaDesde) { query += ' AND i.fechaHora >= ?'; params.push(filters.fechaDesde); }
         if (filters.fechaHasta) { query += ' AND i.fechaHora <= ?'; params.push(filters.fechaHasta); }
-        query += ' ORDER BY i.fechaHora DESC';
+        query += ' ORDER BY i.fechaHora DESC, i.id DESC';
         return this.db.prepare(query).all(...params);
     }
 
@@ -1414,7 +1452,7 @@ class DatabaseService {
         if (filters.categoria) { query += ' AND categoria = ?'; params.push(filters.categoria); }
         if (filters.estado) { query += ' AND estado = ?'; params.push(filters.estado); }
         else { query += " AND estado = 'activo'"; }
-        query += ' ORDER BY fechaSubida DESC';
+        query += ' ORDER BY fechaSubida DESC, id DESC';
         return this.db.prepare(query).all(...params);
     }
 

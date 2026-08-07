@@ -246,6 +246,8 @@ export default function Obras() {
       const obraCompleta = await window.electronAPI.getObraById(obra.id);
       setSelectedObra(obraCompleta);
       setNuevoEjemplar({ tomoId: obraCompleta.tomos[0]?.id || '', numeroInventario: '', ubicacion: '' });
+      setShowTomoForm(false);
+      setNuevoTomoNumero('');
       setShowDetails(true);
     } catch (error) {
       console.error('Error al obtener detalle de la obra:', error);
@@ -287,11 +289,16 @@ export default function Obras() {
     }
   };
 
-  const handleAgregarTomo = async () => {
-    const numero = prompt('Número/nombre del nuevo tomo (ej: "Tomo 2", "Volumen II")');
-    if (!numero || !numero.trim()) return;
+  const [showTomoForm, setShowTomoForm] = useState(false);
+  const [nuevoTomoNumero, setNuevoTomoNumero] = useState('');
+
+  const handleAgregarTomo = async (e) => {
+    e.preventDefault();
+    if (!nuevoTomoNumero.trim()) return;
     try {
-      await window.electronAPI.createTomo({ obraId: selectedObra.id, numero: numero.trim() });
+      await window.electronAPI.createTomo({ obraId: selectedObra.id, numero: nuevoTomoNumero.trim() });
+      setNuevoTomoNumero('');
+      setShowTomoForm(false);
       await recargarDetalle();
     } catch (error) {
       console.error('Error al crear tomo:', error);
@@ -302,11 +309,10 @@ export default function Obras() {
   // Filtrado y búsqueda
   const categoriasDisponibles = [...new Set(obras.map(o => o.categoria).filter(Boolean))];
   const filteredObras = obras.filter(obra => {
-    const autoresTexto = (obra.personas || []).map(p => `${p.nombre} ${p.apellido || ''}`).join(' ');
     const matchesSearch = searchTerm === '' ||
       obra.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (obra.isbn || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      autoresTexto.toLowerCase().includes(searchTerm.toLowerCase());
+      (obra.autoresTexto || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterCategoria === 'todas' || obra.categoria === filterCategoria;
     return matchesSearch && matchesFilter;
   });
@@ -318,9 +324,14 @@ export default function Obras() {
     sinStock: obras.filter(o => (o.ejemplaresDisponibles || 0) === 0).length
   };
 
+  // En la lista (getObras) los autores vienen como texto plano ya armado
+  // (autoresTexto); en el detalle (getObraById) vienen como array (personas)
+  // porque ahí sí se necesita cada nombre/apellido/rol por separado.
   const formatearAutores = (obra) => {
-    if (!obra.personas || obra.personas.length === 0) return 'Sin autor registrado';
-    return obra.personas.map(p => `${p.nombre} ${p.apellido || ''}`.trim()).join(', ');
+    if (obra.personas && obra.personas.length > 0) {
+      return obra.personas.map(p => `${p.nombre} ${p.apellido || ''}`.trim()).join(', ');
+    }
+    return obra.autoresTexto || 'Sin autor registrado';
   };
 
   return (
@@ -574,8 +585,21 @@ export default function Obras() {
                 <div style={{ marginTop: '1.25rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <h4 style={{ margin: 0 }}>Tomos y ejemplares</h4>
-                    <button type="button" className="add-autor-btn" onClick={handleAgregarTomo}><Plus size={14} /> Agregar tomo</button>
+                    <button type="button" className="add-autor-btn" onClick={() => setShowTomoForm(!showTomoForm)}><Plus size={14} /> Agregar tomo</button>
                   </div>
+
+                  {showTomoForm && (
+                    <form className="add-ejemplar-form" onSubmit={handleAgregarTomo} style={{ marginBottom: '0.75rem' }}>
+                      <input
+                        type="text" placeholder='Número/nombre del tomo (ej: "Tomo 2", "Volumen II")'
+                        value={nuevoTomoNumero}
+                        onChange={e => setNuevoTomoNumero(e.target.value)}
+                        autoFocus
+                        required
+                      />
+                      <button type="submit" className="submit-button" style={{ padding: '0.5rem 1rem' }}><Plus size={14} /> Crear tomo</button>
+                    </form>
+                  )}
 
                   {(selectedObra.tomos || []).map(tomo => (
                     <div className="tomo-block" key={tomo.id}>
