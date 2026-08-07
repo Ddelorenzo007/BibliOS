@@ -700,94 +700,7 @@ button:hover {
 }
 
 /* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
-}
 
-.modal-content {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 0;
-  max-width: 500px;
-  width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.modal-header h3 {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: white;
-  margin: 0;
-}
-
-.close-button {
-  background: transparent;
-  border: none;
-  color: #9ca3af;
-  font-size: 1.5rem;
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-.close-button:hover {
-  color: white;
-  background: transparent;
-}
-
-.modal-body {
-  padding: 1.5rem;
-}
-
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.detail-row:last-child {
-  border-bottom: none;
-}
-
-.detail-row .label {
-  font-weight: 500;
-  color: #9ca3af;
-  font-size: 0.9rem;
-}
-
-.detail-row .value {
-  color: white;
-  font-size: 0.9rem;
-  text-align: right;
-  max-width: 60%;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-}
 
 /* Responsive Design */
 @media (min-width: 1600px) {
@@ -900,10 +813,6 @@ button:hover {
     gap: 0.25rem;
   }
 
-  .modal-content {
-    width: 95%;
-    margin: 1rem;
-  }
 }
 
 @media (max-width: 480px) {
@@ -943,84 +852,11 @@ button:hover {
     font-size: 0.8rem;
   }
 
-  .modal-header,
-  .modal-body {
-    padding: 1rem;
-  }
-
-  .detail-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
-  }
-
-  .detail-row .value {
-    text-align: left;
-    max-width: 100%;
-  }
 }
 
 /* Modal de confirmación */
-.confirm-modal {
-  max-width: 400px;
-  width: 90%;
-}
 
-.confirm-message {
-  text-align: center;
-  margin-bottom: 1.5rem;
-}
 
-.confirm-message svg {
-  margin-bottom: 1rem;
-}
-
-.confirm-message p {
-  margin: 0.5rem 0;
-  font-size: 1rem;
-  color: white;
-}
-
-.confirm-warning {
-  color: #ef4444 !important;
-  font-size: 0.9rem !important;
-  font-weight: 500;
-}
-
-.confirm-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-}
-
-.confirm-btn {
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  transition: all 0.3s ease;
-  min-width: 100px;
-}
-
-.confirm-btn.cancel {
-  background: #6b7280;
-  color: white;
-}
-
-.confirm-btn.cancel:hover {
-  background: #4b5563;
-}
-
-.confirm-btn.delete {
-  background: #ef4444;
-  color: white;
-}
-
-.confirm-btn.delete:hover {
-  background: #dc2626;
-}
 /* ===== Toggle Préstamos / Reservas ===== */
 .vista-toggle {
   display: flex;

@@ -163,6 +163,22 @@ class DatabaseService {
                 // que gestiona las cuentas de bibliotecarios, si no lo era ya.
                 this.db.prepare("UPDATE usuarios SET rol = 'administrador' WHERE usuario = 'admin' AND rol != 'administrador'").run();
             }
+
+            // Migración aditiva: agregar "resultado" a auditoria si la base
+            // es de antes de que se registrara éxito/fallo por operación.
+            // Los registros viejos (sin esta columna) se completan con
+            // 'exito' automáticamente, porque en su momento SÍ se
+            // completaron correctamente (si no, ni existirían).
+            const tieneAuditoria = this.db.prepare(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='auditoria'"
+            ).get();
+            if (tieneAuditoria) {
+                const columnasAuditoria = this.db.prepare("PRAGMA table_info(auditoria)").all().map(c => c.name);
+                if (!columnasAuditoria.includes('resultado')) {
+                    this.db.exec("ALTER TABLE auditoria ADD COLUMN resultado TEXT NOT NULL DEFAULT 'exito'");
+                    console.log('Migración: columna "resultado" agregada a auditoria (registros existentes marcados como éxito)');
+                }
+            }
         } catch (error) {
             console.error('Error al migrar esquema bibliográfico:', error);
         }
