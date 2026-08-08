@@ -117,6 +117,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getSociosPorMes: (meses = 6) =>
         ipcRenderer.invoke('database:getSociosPorMes', { meses }),
 
+    // ===== REPORTES =====
+    getObrasMasPrestadas: (limit = 10) =>
+        ipcRenderer.invoke('database:getObrasMasPrestadas', { limit }),
+    getSociosConMasPrestamos: (limit = 10) =>
+        ipcRenderer.invoke('database:getSociosConMasPrestamos', { limit }),
+    getEstadisticasMensuales: (meses = 6) =>
+        ipcRenderer.invoke('database:getEstadisticasMensuales', { meses }),
+
     // ===== UTILIDADES =====
     backup: (destinationPath) =>
         ipcRenderer.invoke('database:backup', destinationPath),

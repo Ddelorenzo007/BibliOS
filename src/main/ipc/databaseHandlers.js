@@ -168,6 +168,17 @@ class DatabaseHandlers {
             return await this.db.getSociosPorMes(meses);
         });
 
+        // ===== REPORTES =====
+        ipcMain.handle('database:getObrasMasPrestadas', async (event, { limit = 10 } = {}) => {
+            return await this.db.getObrasMasPrestadas(limit);
+        });
+        ipcMain.handle('database:getSociosConMasPrestamos', async (event, { limit = 10 } = {}) => {
+            return await this.db.getSociosConMasPrestamos(limit);
+        });
+        ipcMain.handle('database:getEstadisticasMensuales', async (event, { meses = 6 } = {}) => {
+            return await this.db.getEstadisticasMensuales(meses);
+        });
+
         // ===== UTILIDADES =====
         ipcMain.handle('database:backup', async (event, destinationPath) => {
             return await this.db.backup(destinationPath);
@@ -206,6 +217,7 @@ class DatabaseHandlers {
             'database:subirDocumento', 'database:getDocumentos', 'database:darDeBajaDocumento',
             'database:getAuditoria',
             'database:getStats', 'database:getPrestamosPorMes', 'database:getObrasPorCategoria', 'database:getSociosPorMes',
+            'database:getObrasMasPrestadas', 'database:getSociosConMasPrestamos', 'database:getEstadisticasMensuales',
             'database:backup', 'database:close', 'database:insertSampleData',
             'window:focus'
         ];

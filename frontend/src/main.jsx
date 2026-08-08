@@ -12,6 +12,7 @@ import Usuarios from './Usuarios.jsx';
 import Documentos from './Documentos.jsx';
 import Ingresos from './Ingresos.jsx';
 import Auditoria from './Auditoria.jsx';
+import Reportes from './Reportes.jsx';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import { DataProvider } from './context/DataContext.jsx';
@@ -33,6 +34,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/documentos" element={<ProtectedRoute><Documentos /></ProtectedRoute>} />
           <Route path="/ingresos" element={<ProtectedRoute><Ingresos /></ProtectedRoute>} />
           <Route path="/auditoria" element={<AdminRoute><Auditoria /></AdminRoute>} />
+          <Route path="/reportes" element={<ProtectedRoute><Reportes /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </DataProvider>

@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LogOut, Sun, Moon, LayoutDashboard, Repeat, Users, Book, UserCog, FileText, LogIn, ShieldCheck
+  LogOut, Sun, Moon, LayoutDashboard, Repeat, Users, Book, UserCog, FileText, LogIn, ShieldCheck, BarChart3
 } from 'lucide-react';
 import './sidebar.css';
 import { useAuth } from './hooks/useAuth.js';
@@ -78,6 +78,10 @@ export default function Sidebar({ isOpen, onClose }) {
           <Link to="/ingresos" className={`nav-item ${isActive('/ingresos')}`}>
             <LogIn size={20} />
             <span>Ingresos</span>
+          </Link>
+          <Link to="/reportes" className={`nav-item ${isActive('/reportes')}`}>
+            <BarChart3 size={20} />
+            <span>Reportes</span>
           </Link>
           {currentUser?.rol === 'administrador' && (
             <Link to="/auditoria" className={`nav-item ${isActive('/auditoria')}`}>

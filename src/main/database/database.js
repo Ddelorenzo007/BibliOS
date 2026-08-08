@@ -1529,6 +1529,72 @@ class DatabaseService {
         return resultados.map(r => { total += r.sociosNuevos; return { ...r, totalAcumulado: total }; });
     }
 
+    // ===== REPORTES =====
+
+    // Obras más prestadas (histórico completo, no solo activos)
+    async getObrasMasPrestadas(limit = 10) {
+        return this.db.prepare(`
+            SELECT o.id, o.titulo, o.isbn, o.categoria, COUNT(p.id) as cantidadPrestamos
+            FROM prestamos p
+            JOIN ejemplares e ON p.ejemplarId = e.id
+            JOIN tomos t ON e.tomoId = t.id
+            JOIN obras o ON t.obraId = o.id
+            GROUP BY o.id
+            ORDER BY cantidadPrestamos DESC
+            LIMIT ?
+        `).all(limit);
+    }
+
+    // Socios con más préstamos (histórico completo)
+    async getSociosConMasPrestamos(limit = 10) {
+        return this.db.prepare(`
+            SELECT s.id, s.nombre, s.apellido, s.dni, s.tipoSocio, COUNT(p.id) as cantidadPrestamos
+            FROM prestamos p
+            JOIN socios s ON p.socioId = s.id
+            GROUP BY s.id
+            ORDER BY cantidadPrestamos DESC
+            LIMIT ?
+        `).all(limit);
+    }
+
+    // Consolidado mensual: obras nuevas, socios nuevos, préstamos y
+    // devoluciones por mes, en una sola estructura (para el gráfico
+    // comparativo de Reportes). Reutiliza la misma ventana de "meses"
+    // para las 3 dimensiones y las combina por clave de mes.
+    async getEstadisticasMensuales(meses = 6) {
+        const obrasPorMes = this.db.prepare(`
+            SELECT strftime('%Y-%m', fechaCreacion) as mes, COUNT(*) as obrasNuevas
+            FROM obras WHERE fechaCreacion >= date('now', '-' || ? || ' months')
+            GROUP BY mes
+        `).all(meses);
+
+        const sociosPorMes = this.db.prepare(`
+            SELECT strftime('%Y-%m', fechaRegistro) as mes, COUNT(*) as sociosNuevos
+            FROM socios WHERE fechaRegistro >= date('now', '-' || ? || ' months')
+            GROUP BY mes
+        `).all(meses);
+
+        const prestamosPorMes = this.db.prepare(`
+            SELECT strftime('%Y-%m', fechaPrestamo) as mes,
+                   COUNT(*) as prestamos,
+                   SUM(CASE WHEN estado = 'devuelto' THEN 1 ELSE 0 END) as devoluciones
+            FROM prestamos WHERE fechaPrestamo >= date('now', '-' || ? || ' months')
+            GROUP BY mes
+        `).all(meses);
+
+        // Unir las 3 fuentes por clave de mes (YYYY-MM)
+        const mapa = {};
+        const asegurar = (mes) => {
+            if (!mapa[mes]) mapa[mes] = { mes, obrasNuevas: 0, sociosNuevos: 0, prestamos: 0, devoluciones: 0 };
+            return mapa[mes];
+        };
+        obrasPorMes.forEach(r => { asegurar(r.mes).obrasNuevas = r.obrasNuevas; });
+        sociosPorMes.forEach(r => { asegurar(r.mes).sociosNuevos = r.sociosNuevos; });
+        prestamosPorMes.forEach(r => { asegurar(r.mes).prestamos = r.prestamos; asegurar(r.mes).devoluciones = r.devoluciones || 0; });
+
+        return Object.values(mapa).sort((a, b) => a.mes.localeCompare(b.mes));
+    }
+
     // ===== UTILIDADES =====
 
     async close() {
