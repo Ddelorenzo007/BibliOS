@@ -1,6 +1,5 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const DatabaseHandlers = require('./ipc/databaseHandlers');
 const { registerDialogsIPC } = require('./dialogs');
 
 // Mantener una referencia global del objeto de ventana
@@ -78,7 +77,6 @@ function createWindow() {
 app.whenReady().then(() => {
   try {
     // Inicializar los manejadores de base de datos
-    databaseHandlers = new DatabaseHandlers();
     console.log('Manejadores de base de datos inicializados');
     
     // Crear la ventana principal

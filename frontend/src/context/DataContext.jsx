@@ -1,10 +1,13 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { useAuth } from '../hooks/useAuth.js';
 
 export const DataContext = createContext();
 
 export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
+    const { isAuthenticated, loading: authLoading } = useAuth();
+
     const [obras, setObras] = useState([]);
     const [socios, setSocios] = useState([]);
     const [prestamos, setPrestamos] = useState([]);
@@ -21,7 +24,6 @@ export const DataProvider = ({ children }) => {
         sancionesVigentes: 0
     });
 
-    // Chart Data
     const [charts, setCharts] = useState({
         prestamosPorMes: [],
         obrasPorCategoria: [],
@@ -30,14 +32,20 @@ export const DataProvider = ({ children }) => {
 
     const [loading, setLoading] = useState(true);
 
-    // Cargar todos los datos al montar (biblioteca única, no depende de una selección)
+    // Solo traer datos cuando ya sabemos que hay sesión iniciada. Antes,
+    // con IPC directo a SQLite, no había control de acceso, así que esto
+    // se disparaba apenas montaba el componente sin problema. Ahora que
+    // el servidor exige JWT, hacerlo antes de loguearse tira 401 (esperado
+    // y correcto: el servidor está rechazando bien un pedido sin token).
     useEffect(() => {
-        if (window.electronAPI) {
+        if (authLoading) return; // todavía no sabemos si hay sesión guardada
+        if (isAuthenticated && window.electronAPI) {
             refreshAll();
         } else {
+            clearData();
             setLoading(false);
         }
-    }, []);
+    }, [isAuthenticated, authLoading]);
 
     const refreshAll = async () => {
         if (!window.electronAPI) return;
@@ -45,9 +53,6 @@ export const DataProvider = ({ children }) => {
         try {
             setLoading(true);
 
-            // Antes de traer los préstamos, marcamos como vencidos los que
-            // ya pasaron su fecha prevista (no hay cron: se resuelve al
-            // pedirlos, que es como el resto de la app ya funciona)
             await window.electronAPI.actualizarPrestamosVencidos();
 
             const [
@@ -119,7 +124,6 @@ export const DataProvider = ({ children }) => {
         }
     };
 
-    // Refresh granulares
     const refreshObras = async () => {
         if (!window.electronAPI) return;
         const data = await window.electronAPI.getObras({});

@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 
-// Hook de autenticación simple: usuario + contraseña contra la base SQLite
-// local (usuarios ficticios). Cuando exista integración con la entidad
-// externa (superentidad) que gestionará el registro real de usuarios, la
-// función `login` de acá es el único lugar que habría que adaptar.
+// Hook de autenticación. Antes hablaba con SQLite vía IPC en el mismo
+// proceso; ahora window.electronAPI.login() habla por HTTP con el
+// servidor Express (ver frontend/src/services/apiClient.js), que además
+// devuelve un JWT. Ese token lo administra apiClient.js solo (se guarda al
+// loguear, se manda en cada request); acá lo único nuevo respecto de la
+// versión anterior es llamar a electronAPI.logout() para borrarlo al
+// cerrar sesión.
 
 const SESSION_KEY = 'biblios_session';
 
@@ -56,8 +59,8 @@ export const useAuth = () => {
     setIsAuthenticated(false);
     setCurrentUser(null);
     localStorage.removeItem(SESSION_KEY);
+    window.electronAPI?.logout?.(); // limpia el JWT guardado por apiClient.js
 
-    // Solución simple: solo limpiar el focus actual
     if (document.activeElement && document.activeElement.blur) {
       document.activeElement.blur();
     }
