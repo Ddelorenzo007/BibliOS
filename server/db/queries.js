@@ -1029,9 +1029,46 @@ async function getReservas(filters = {}) {
 }
 
 async function cancelarReserva(id, usuarioId) {
-    const result = await pool.query(`UPDATE reservas SET estado = 'cancelada' WHERE id = $1`, [id]);
-    await registrarAuditoria(pool, usuarioId, 'cancelar', 'reservas', id, 'Reserva cancelada');
-    return result.rowCount > 0;
+    try {
+        const resultado = await withTransaction(async (client) => {
+            const reservaRes = await client.query('SELECT * FROM reservas WHERE id = $1', [id]);
+            const reserva = reservaRes.rows[0];
+            if (!reserva) throw new Error('Reserva no encontrada');
+
+            await client.query(`UPDATE reservas SET estado = 'cancelada' WHERE id = $1`, [id]);
+
+            // Si esta reserva ya tenía un ejemplar apartado (estado
+            // "reservado"), hay que liberarlo -- si no, queda huérfano:
+            // "reservado" para siempre, sin ninguna reserva pendiente real
+            // que lo justifique.
+            if (reserva.ejemplarasignadoid) {
+                // Por si hay otra reserva pendiente detrás en la cola para
+                // la misma obra, se lo pasamos a ella directamente en vez
+                // de dejarlo "disponible" y que cualquiera se lo lleve
+                // salteando el orden de espera.
+                const siguienteRes = await client.query(`
+                    SELECT * FROM reservas
+                    WHERE obraId = $1 AND estado = 'pendiente' AND ejemplarAsignadoId IS NULL AND id != $2
+                    ORDER BY prioridad ASC LIMIT 1
+                `, [reserva.obraid, id]);
+                const siguiente = siguienteRes.rows[0];
+
+                if (siguiente) {
+                    await client.query('UPDATE reservas SET ejemplarAsignadoId = $1 WHERE id = $2', [reserva.ejemplarasignadoid, siguiente.id]);
+                    // el ejemplar queda "reservado" igual, pero ahora para la próxima persona en la cola
+                } else {
+                    await client.query(`UPDATE ejemplares SET estado = 'disponible' WHERE id = $1`, [reserva.ejemplarasignadoid]);
+                }
+            }
+            return true;
+        });
+        await registrarAuditoria(pool, usuarioId, 'cancelar', 'reservas', id, 'Reserva cancelada');
+        return resultado;
+    } catch (error) {
+        await registrarAuditoria(pool, usuarioId, 'cancelar', 'reservas', id, error.message, 'fallo');
+        console.error('Error al cancelar reserva:', error);
+        throw error;
+    }
 }
 
 async function atenderReserva(id, usuarioId) {
@@ -1210,6 +1247,77 @@ async function getEstadisticasMensuales(meses = 6) {
     return Object.values(mapa).sort((a, b) => a.mes.localeCompare(b.mes));
 }
 
+// ===== DATOS FICTICIOS DE DEMOSTRACIÓN =====
+async function insertSampleData() {
+    const obrasFicticias = [
+        { isbn: '978-1234567891', titulo: 'Estructuras de Datos y Algoritmos', categoria: 'Informática', editorial: 'UTN Press', anioPublicacion: 2021, idioma: 'Español', personas: [{ nombre: 'Laura', apellido: 'Fernández', rol: 'autor' }] },
+        { isbn: '978-1234567892', titulo: 'Bases de Datos Relacionales', categoria: 'Informática', editorial: 'UTN Press', anioPublicacion: 2022, idioma: 'Español', personas: [{ nombre: 'Roberto', apellido: 'Sánchez', rol: 'autor' }] },
+        { isbn: '978-1234567893', titulo: 'Matemática Discreta', categoria: 'Matemática', editorial: 'UTN Press', anioPublicacion: 2019, idioma: 'Español', personas: [{ nombre: 'Ana', apellido: 'García', rol: 'autor' }] },
+        { isbn: '978-1234567894', titulo: 'Álgebra Lineal', categoria: 'Matemática', editorial: 'UTN Press', anioPublicacion: 2020, idioma: 'Español', personas: [{ nombre: 'Miguel', apellido: 'Torres', rol: 'autor' }] },
+        { isbn: '978-1234567898', titulo: 'Redes de Computadoras', subtitulo: 'Protocolos y arquitecturas', categoria: 'Informática', editorial: 'UTN Press', anioPublicacion: 2022, idioma: 'Español', personas: [{ nombre: 'Fernando', apellido: 'Morales', rol: 'autor' }, { nombre: 'Julián', apellido: 'Ibáñez', rol: 'compilador' }] },
+        { isbn: '978-1234567899', titulo: 'Ingeniería de Software', categoria: 'Informática', editorial: 'UTN Press', anioPublicacion: 2021, idioma: 'Español', personas: [{ nombre: 'Silvia', apellido: 'Ramírez', rol: 'autor' }] },
+        { isbn: '978-1234567900', titulo: 'Inteligencia Artificial', subtitulo: 'Fundamentos de Machine Learning', categoria: 'Informática', editorial: 'UTN Press', anioPublicacion: 2023, idioma: 'Español', personas: [{ nombre: 'Luis', apellido: 'Herrera', rol: 'autor' }] },
+        { isbn: '978-1234567897', titulo: 'Física II', subtitulo: 'Electricidad y magnetismo', categoria: 'Física', editorial: 'UTN Press', anioPublicacion: 2020, idioma: 'Español', personas: [{ nombre: 'Carmen', apellido: 'Díaz', rol: 'autor' }] },
+    ];
+
+    const obrasCreadas = [];
+    for (const obraData of obrasFicticias) {
+        try {
+            const obra = await createObra(obraData);
+            obrasCreadas.push(obra);
+            const cantidad = 2 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < cantidad; i++) {
+                await createEjemplar({
+                    tomoId: obra.tomos[0].id,
+                    numeroInventario: `INV-${obra.id}-${i + 1}`,
+                    ubicacion: `Estante ${String.fromCharCode(65 + (obra.id % 6))}-${(obra.id % 5) + 1}`
+                });
+            }
+        } catch (error) {
+            console.error('Error al insertar obra ficticia:', obraData.titulo, error.message);
+        }
+    }
+
+    const sociosFicticios = [
+        { nombre: 'Juan', apellido: 'Pérez', dni: '38111222', legajo: '34001', tipoSocio: 'alumno', email: 'juan.perez@utn.frlp.edu.ar', telefono: '221-4567890' },
+        { nombre: 'María', apellido: 'González', dni: '38111223', legajo: '34002', tipoSocio: 'alumno', email: 'maria.gonzalez@utn.frlp.edu.ar', telefono: '221-4567891' },
+        { nombre: 'Carlos', apellido: 'Rodríguez', dni: '38111224', legajo: '34003', tipoSocio: 'alumno', email: 'carlos.rodriguez@utn.frlp.edu.ar', telefono: '221-4567892' },
+        { nombre: 'Ana', apellido: 'Martínez', dni: '30111225', legajo: null, tipoSocio: 'graduado', email: 'ana.martinez@utn.frlp.edu.ar', telefono: '221-4567893' },
+        { nombre: 'Luis', apellido: 'Fernández', dni: '25111226', legajo: null, tipoSocio: 'docente', email: 'luis.fernandez@utn.frlp.edu.ar', telefono: '221-4567894' },
+        { nombre: 'Laura', apellido: 'Sánchez', dni: '27111227', legajo: null, tipoSocio: 'no_docente', email: 'laura.sanchez@utn.frlp.edu.ar', telefono: '221-4567895' },
+        { nombre: 'Roberto', apellido: 'Díaz', dni: '38111228', legajo: '34004', tipoSocio: 'alumno', email: 'roberto.diaz@utn.frlp.edu.ar', telefono: '221-4567896' },
+        { nombre: 'Patricia', apellido: 'López', dni: '22111229', legajo: null, tipoSocio: 'docente', email: 'patricia.lopez@utn.frlp.edu.ar', telefono: '221-4567899' },
+    ];
+
+    const sociosCreados = [];
+    for (const socioData of sociosFicticios) {
+        try {
+            sociosCreados.push(await createSocio(socioData));
+        } catch (error) {
+            console.error('Error al insertar socio ficticio:', socioData.nombre, error.message);
+        }
+    }
+
+    let prestamosCreados = 0;
+    const ejemplaresDisponibles = await getEjemplares({ estado: 'disponible' });
+    for (let i = 0; i < Math.min(6, ejemplaresDisponibles.length, sociosCreados.length); i++) {
+        try {
+            await createPrestamo({ ejemplarId: ejemplaresDisponibles[i].id, socioId: sociosCreados[i % sociosCreados.length].id });
+            prestamosCreados++;
+        } catch (error) {
+            console.error('Error al crear préstamo ficticio:', error.message);
+        }
+    }
+
+    return {
+        success: true,
+        message: 'Datos ficticios insertados correctamente',
+        obrasInsertadas: obrasCreadas.length,
+        sociosInsertados: sociosCreados.length,
+        prestamosInsertados: prestamosCreados
+    };
+}
+
 module.exports = {
     Validators, hashPassword, generateSalt,
     seedDefaultUsuario, createUsuario, getUsuarioById, login, getUsuarios, toggleEstadoUsuario,
@@ -1226,4 +1334,5 @@ module.exports = {
     getAuditoria,
     getStats, getPrestamosPorMes, getObrasPorCategoria, getSociosPorMes,
     getObrasMasPrestadas, getSociosConMasPrestamos, getEstadisticasMensuales,
+    insertSampleData,
 };

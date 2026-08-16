@@ -64,4 +64,9 @@ router.get('/reportes/estadisticas-mensuales', wrap(async (req, res) => {
     res.json(await db.getEstadisticasMensuales(req.query.meses ? parseInt(req.query.meses) : 6));
 }));
 
+// ----- Datos ficticios de demostración (solo administradores) -----
+router.post('/seed-demo', requireAdmin, wrap(async (req, res) => {
+    res.json(await db.insertSampleData());
+}));
+
 module.exports = router;

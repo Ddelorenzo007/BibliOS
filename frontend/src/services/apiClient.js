@@ -50,6 +50,20 @@ async function request(method, path, body) {
     let data = null;
     try { data = await res.json(); } catch (_) { /* respuesta sin cuerpo JSON */ }
 
+    if (res.status === 401) {
+        // El token venció o quedó inválido (ej: el servidor se reinició con
+        // otro JWT_SECRET). Sin este manejo, la app queda en un estado roto:
+        // "isAuthenticated" sigue en true (guardado aparte, en la sesión),
+        // pero cualquier pedido al servidor va a seguir fallando en bucle.
+        // Se limpia todo y se fuerza la vuelta a /login con una sesión limpia.
+        clearToken();
+        localStorage.removeItem('biblios_session');
+        if (!window.location.hash.includes('/login') && window.location.pathname !== '/login') {
+            window.location.href = '/login';
+        }
+        throw new Error('Tu sesión expiró. Iniciá sesión de nuevo.');
+    }
+
     if (!res.ok) {
         // Igual que antes con los errores lanzados desde database.js: el
         // mensaje llega tal cual para mostrarlo en los diálogos de error

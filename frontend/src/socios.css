@@ -417,6 +417,7 @@ button:hover {
   font-weight: 600;
   color: var(--text-header);
   border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
 }
 
 .socios-table td {
@@ -542,6 +543,37 @@ button:hover {
   background: #ef4444;
   border-color: #ef4444;
   color: white;
+}
+
+/* ============================================================================
+   FIX: columna "Acciones" fija a la derecha de la tabla.
+   Con 8 columnas (Nº, Socio, DNI/Legajo, Tipo, Contacto, Estado, Préstamos,
+   Acciones), el contenido es más ancho que la pantalla y .table-container
+   scrollea horizontalmente -- sin esto, había que desplazar todo el scroll
+   para llegar a los botones de sancionar/dar de baja. Con position: sticky,
+   la columna de Acciones queda siempre visible sin importar cuánto se
+   scrollee para ver el resto de los datos.
+   ============================================================================ */
+.socios-table th:last-child,
+.socios-table td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--bg-card);
+  box-shadow: -6px 0 8px -6px rgba(0, 0, 0, 0.4);
+}
+
+.socios-table th:last-child {
+  background: var(--bg-header);
+  z-index: 2;
+}
+
+.socios-table tbody tr:nth-child(even) td:last-child {
+  background: var(--bg-zebra);
+}
+
+.socios-table tr:hover td:last-child {
+  background: var(--bg-hover) !important;
 }
 
 /* Modal */
