@@ -205,7 +205,13 @@ button:hover {
 
 .form-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* Antes: repeat(4, 1fr) fijo -- se veía bien en el formulario grande
+     ("Nuevo Socio", con toda la pantalla), pero en el modal de edición
+     (max-width: 600px) 4 columnas no entran y desborda horizontalmente.
+     Con auto-fit + minmax, la cantidad de columnas se adapta sola al
+     ancho disponible: 4 en el formulario grande, 2 en el modal angosto,
+     apilando hacia abajo en vez de desbordar hacia los costados. */
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 1rem;
 }
 
@@ -213,6 +219,11 @@ button:hover {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  /* Sin esto, un valor largo adentro (ej: un email largo) le impone un
+     ancho mínimo a la celda del grid y el auto-fit de .form-row no puede
+     reducir columnas por más angosto que sea el contenedor -- es el
+     motivo real por el que el modal de edición seguía desbordando. */
+  min-width: 0;
 }
 
 .form-group label {
@@ -234,6 +245,9 @@ button:hover {
   font-size: 0.9rem;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .form-group input:focus,
@@ -589,9 +603,10 @@ button:hover {
     grid-template-columns: repeat(4, 1fr);
   }
 
-  .form-row {
-    grid-template-columns: repeat(4, 1fr);
-  }
+  /* Ya no se fuerza acá: el auto-fit de arriba ya muestra 4 columnas
+     solo, en el formulario grande, cuando hay espacio de sobra -- y
+     sigue respetando el ancho angosto del modal de edición aunque la
+     pantalla sea grande. */
 
   .socios-table th,
   .socios-table td {
