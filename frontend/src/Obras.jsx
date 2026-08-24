@@ -47,7 +47,7 @@ export default function Obras() {
   const [personas, setPersonas] = useState([{ nombre: '', apellido: '', rol: 'autor' }]);
 
   // Estado del mini-formulario "agregar ejemplar" dentro del modal de detalle
-  const [nuevoEjemplar, setNuevoEjemplar] = useState({ tomoId: '', numeroInventario: '', ubicacion: '' });
+  const [nuevoEjemplar, setNuevoEjemplar] = useState({ tomoId: '', numeroInventario: '', ubicacion: '', tipoUbicacion: 'deposito' });
 
   useEffect(() => {
     setObras(obrasRaw || []);
@@ -245,7 +245,7 @@ export default function Obras() {
     try {
       const obraCompleta = await window.electronAPI.getObraById(obra.id);
       setSelectedObra(obraCompleta);
-      setNuevoEjemplar({ tomoId: obraCompleta.tomos[0]?.id || '', numeroInventario: '', ubicacion: '' });
+      setNuevoEjemplar({ tomoId: obraCompleta.tomos[0]?.id || '', numeroInventario: '', ubicacion: '', tipoUbicacion: 'deposito' });
       setShowTomoForm(false);
       setNuevoTomoNumero('');
       setShowDetails(true);
@@ -269,9 +269,10 @@ export default function Obras() {
       await window.electronAPI.createEjemplar({
         tomoId: parseInt(nuevoEjemplar.tomoId),
         numeroInventario: nuevoEjemplar.numeroInventario.trim(),
-        ubicacion: nuevoEjemplar.ubicacion || null
+        ubicacion: nuevoEjemplar.ubicacion || null,
+        tipoUbicacion: nuevoEjemplar.tipoUbicacion || 'deposito'
       });
-      setNuevoEjemplar(prev => ({ ...prev, numeroInventario: '', ubicacion: '' }));
+      setNuevoEjemplar(prev => ({ ...prev, numeroInventario: '', ubicacion: '', tipoUbicacion: 'deposito' }));
       await recargarDetalle();
     } catch (error) {
       console.error('Error al agregar ejemplar:', error);
@@ -286,6 +287,16 @@ export default function Obras() {
     } catch (error) {
       console.error('Error al actualizar ejemplar:', error);
       await window.nativeDialog.error({ message: 'No se pudo actualizar el ejemplar', detail: error.message });
+    }
+  };
+
+  const handleCambiarTipoUbicacion = async (ejemplarId, nuevoTipo) => {
+    try {
+      await window.electronAPI.updateEjemplar(ejemplarId, { tipoUbicacion: nuevoTipo });
+      await recargarDetalle();
+    } catch (error) {
+      console.error('Error al reclasificar ejemplar:', error);
+      await window.nativeDialog.error({ message: 'No se pudo reclasificar el ejemplar', detail: error.message });
     }
   };
 
@@ -607,20 +618,36 @@ export default function Obras() {
                       {(tomo.ejemplares || []).length === 0 && <p style={{ fontSize: '0.85rem', opacity: 0.7 }}>Sin ejemplares cargados todavía.</p>}
                       {(tomo.ejemplares || []).map(ej => (
                         <div className="ejemplar-row" key={ej.id}>
-                          <span>{ej.numeroInventario} <span style={{ opacity: 0.6 }}>({ej.numeroControl})</span> {ej.ubicacion ? `· ${ej.ubicacion}` : ''}</span>
-                          <select
-                            className="ejemplar-estado-select"
-                            value={ej.estado}
-                            onChange={(e) => handleCambiarEstadoEjemplar(ej.id, e.target.value)}
-                            style={{ borderColor: getEstadoColor(ej.estado) }}
-                          >
-                            <option value="disponible">Disponible</option>
-                            <option value="prestado">Prestado</option>
-                            <option value="reservado">Reservado</option>
-                            <option value="en_reparacion">En reparación</option>
-                            <option value="extraviado">Extraviado</option>
-                            <option value="baja">Baja</option>
-                          </select>
+                          <span>
+                            {ej.numeroInventario} <span style={{ opacity: 0.6 }}>({ej.numeroControl})</span> {ej.ubicacion ? `· ${ej.ubicacion}` : ''}
+                            <span className={`badge-ubicacion ${ej.tipoUbicacion === 'sala' ? 'badge-sala' : 'badge-deposito'}`}>
+                              {ej.tipoUbicacion === 'sala' ? 'Sala' : 'Depósito'}
+                            </span>
+                          </span>
+                          <span style={{ display: 'flex', gap: '0.4rem' }}>
+                            <select
+                              className="ejemplar-estado-select"
+                              value={ej.tipoUbicacion || 'deposito'}
+                              onChange={(e) => handleCambiarTipoUbicacion(ej.id, e.target.value)}
+                              title="Depósito (se presta) o Sala (solo consulta en el lugar)"
+                            >
+                              <option value="deposito">Depósito</option>
+                              <option value="sala">Sala</option>
+                            </select>
+                            <select
+                              className="ejemplar-estado-select"
+                              value={ej.estado}
+                              onChange={(e) => handleCambiarEstadoEjemplar(ej.id, e.target.value)}
+                              style={{ borderColor: getEstadoColor(ej.estado) }}
+                            >
+                              <option value="disponible">Disponible</option>
+                              <option value="prestado">Prestado</option>
+                              <option value="reservado">Reservado</option>
+                              <option value="en_reparacion">En reparación</option>
+                              <option value="extraviado">Extraviado</option>
+                              <option value="baja">Baja</option>
+                            </select>
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -643,6 +670,14 @@ export default function Obras() {
                       value={nuevoEjemplar.ubicacion}
                       onChange={e => setNuevoEjemplar(prev => ({ ...prev, ubicacion: e.target.value }))}
                     />
+                    <select
+                      value={nuevoEjemplar.tipoUbicacion}
+                      onChange={e => setNuevoEjemplar(prev => ({ ...prev, tipoUbicacion: e.target.value }))}
+                      title="Depósito (se presta) o Sala (solo consulta en el lugar)"
+                    >
+                      <option value="deposito">Depósito</option>
+                      <option value="sala">Sala</option>
+                    </select>
                     <button type="submit" className="submit-button" style={{ padding: '0.5rem 1rem' }}><Plus size={14} /> Agregar ejemplar</button>
                   </form>
                 </div>

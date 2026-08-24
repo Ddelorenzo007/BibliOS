@@ -83,6 +83,7 @@ const CAMEL_MAP = {
     ejemplaresdisponibles: 'ejemplaresDisponibles', autorestexto: 'autoresTexto',
     tomonumero: 'tomoNumero', obratitulo: 'obraTitulo', socionombre: 'socioNombre',
     socioapellido: 'socioApellido', sociodni: 'socioDni', usuarionombre: 'usuarioNombre',
+    tipoubicacion: 'tipoUbicacion',
 };
 
 function camelizeRow(row) {
@@ -493,6 +494,10 @@ async function createEjemplar(ejemplarData) {
         const id = await withTransaction(async (client) => {
             Validators.validateRequired(ejemplarData.tomoId, 'tomoId');
             Validators.validateRequired(ejemplarData.numeroInventario, 'numeroInventario');
+            const tipoUbicacion = ejemplarData.tipoUbicacion || 'deposito';
+            if (!['deposito', 'sala'].includes(tipoUbicacion)) {
+                throw new Error('El tipo de ubicación debe ser "deposito" o "sala"');
+            }
 
             const tomo = await client.query('SELECT * FROM tomos WHERE id = $1', [ejemplarData.tomoId]);
             if (tomo.rows.length === 0) throw new Error('El tomo especificado no existe');
@@ -501,9 +506,9 @@ async function createEjemplar(ejemplarData) {
             if (duplicado.rows.length > 0) throw new Error(`El número de inventario manual "${ejemplarData.numeroInventario}" ya existe.`);
 
             const result = await client.query(
-                `INSERT INTO ejemplares (tomoId, numeroControl, numeroInventario, ubicacion, estado)
-                 VALUES ($1, 'TEMP', $2, $3, $4) RETURNING id`,
-                [ejemplarData.tomoId, ejemplarData.numeroInventario, ejemplarData.ubicacion || null, ejemplarData.estado || 'disponible']
+                `INSERT INTO ejemplares (tomoId, numeroControl, numeroInventario, ubicacion, estado, tipoUbicacion)
+                 VALUES ($1, 'TEMP', $2, $3, $4, $5) RETURNING id`,
+                [ejemplarData.tomoId, ejemplarData.numeroInventario, ejemplarData.ubicacion || null, ejemplarData.estado || 'disponible', tipoUbicacion]
             );
             const nuevoId = result.rows[0].id;
             const numeroControl = `C-${String(nuevoId).padStart(6, '0')}`;
@@ -554,9 +559,12 @@ async function getEjemplarById(id) {
 
 async function updateEjemplar(id, updates) {
     try {
+        if (updates.tipoUbicacion !== undefined && !['deposito', 'sala'].includes(updates.tipoUbicacion)) {
+            throw new Error('El tipo de ubicación debe ser "deposito" o "sala"');
+        }
         const fields = [];
         const values = [];
-        ['ubicacion', 'estado'].forEach(key => {
+        ['ubicacion', 'estado', 'tipoUbicacion'].forEach(key => {
             if (updates[key] !== undefined) { values.push(updates[key]); fields.push(`${key} = $${values.length}`); }
         });
         if (fields.length === 0) return false;
@@ -763,6 +771,8 @@ async function tieneSancionVigente(socioId) {
 
 async function createPrestamo(prestamoData) {
     try {
+        let esDeSala = false; // <-- 1. NUEVA VARIABLE BANDERA
+
         const id = await withTransaction(async (client) => {
             Validators.validateRequired(prestamoData.ejemplarId, 'ejemplarId');
             Validators.validateRequired(prestamoData.socioId, 'socioId');
@@ -770,6 +780,7 @@ async function createPrestamo(prestamoData) {
             const socioRes = await client.query('SELECT * FROM socios WHERE id = $1', [prestamoData.socioId]);
             const socio = socioRes.rows[0];
             if (!socio) throw new Error('El socio especificado no existe');
+            
             const sancionVigente = await client.query(
                 `SELECT id FROM sanciones WHERE socioId = $1 AND estado = 'vigente' AND fechaFin > now()`, [prestamoData.socioId]
             );
@@ -781,6 +792,14 @@ async function createPrestamo(prestamoData) {
             const ejemplarRes = await client.query('SELECT * FROM ejemplares WHERE id = $1', [prestamoData.ejemplarId]);
             const ejemplar = ejemplarRes.rows[0];
             if (!ejemplar) throw new Error('El ejemplar especificado no existe');
+
+            // 2. MODIFICAMOS EL CHEQUEO DE SALA
+            if (ejemplar.tipoubicacion === 'sala') {
+                if (!(prestamoData.observaciones || '').trim()) {
+                    throw new Error('Este ejemplar es de Sala (no circula normalmente). Para prestarlo como excepción, indicá el motivo en las observaciones.');
+                }
+                esDeSala = true; // <-- ACTIVAMOS LA BANDERA
+            }
 
             let reservaACerrar = null;
             if (ejemplar.estado !== 'disponible') {
@@ -811,7 +830,27 @@ async function createPrestamo(prestamoData) {
             return result.rows[0].id;
         });
 
-        await registrarAuditoria(pool, prestamoData.usuarioId, 'crear', 'prestamos', id, `Préstamo registrado (ejemplar ${prestamoData.ejemplarId}, socio ${prestamoData.socioId})`);
+        // 3. NUEVA LÓGICA DE AUDITORÍA CONDICIONAL
+        if (esDeSala) {
+            await registrarAuditoria(
+                pool, 
+                prestamoData.usuarioId, 
+                'excepcion_sala', // <-- Acción específica
+                'prestamos', 
+                id, 
+                `Préstamo de SALA autorizado. Justificación: "${prestamoData.observaciones}" (Socio ID: ${prestamoData.socioId})`
+            );
+        } else {
+            await registrarAuditoria(
+                pool, 
+                prestamoData.usuarioId, 
+                'crear', 
+                'prestamos', 
+                id, 
+                `Préstamo registrado (ejemplar ${prestamoData.ejemplarId}, socio ${prestamoData.socioId})`
+            );
+        }
+
         return getPrestamoById(id);
     } catch (error) {
         await registrarAuditoria(pool, prestamoData.usuarioId, 'crear', 'prestamos', null, error.message, 'fallo');

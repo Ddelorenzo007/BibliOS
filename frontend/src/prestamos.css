@@ -904,3 +904,63 @@ button:hover {
   font-size: 0.72rem;
   font-weight: 700;
 }
+
+/* ===== Alertas y Badges de Sala/Depósito ===== */
+
+/* Etiqueta pequeña que aparece en los resultados de búsqueda */
+.badge-ubicacion {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+}
+
+/* Color ámbar para destacar que es material de Sala (restringido) */
+.badge-sala {
+  background: rgba(245, 158, 11, 0.15); 
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Recuadro de advertencia en el formulario */
+.alerta-sala {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(245, 158, 11, 0.1); 
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: -0.5rem; /* Lo acerca un poco a la fila de arriba */
+  margin-bottom: 1.5rem;
+  color: #fcd34d;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  animation: slideDown 0.3s ease-out; /* Animación suave al aparecer */
+}
+
+.alerta-sala svg {
+  color: #f59e0b; 
+  flex-shrink: 0;
+}
+
+.alerta-sala strong {
+  color: #fbbf24;
+  font-weight: 700;
+}
+
+/* Resaltar visualmente el campo de observaciones cuando es obligatorio */
+textarea[required] {
+  border-left: 3px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.02);
+}
+
+textarea[required]:focus {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1) !important;
+}

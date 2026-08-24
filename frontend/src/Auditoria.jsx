@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Menu, Filter, CheckCircle, XCircle, Calendar, User } from 'lucide-react';
+import { ShieldCheck, Menu, Filter, CheckCircle, XCircle, Calendar, User, AlertTriangle } from 'lucide-react';
 import './gestion.css';
 import Sidebar from './Sidebar.jsx';
 
@@ -92,9 +92,31 @@ export default function Auditoria() {
                     <tr key={r.id}>
                       <td><div className="date-info"><Calendar size={14} /><span>{formatFechaHora(r.fecha)}</span></div></td>
                       <td><div className="user-info"><User size={14} /><span>{r.usuarioNombre || '—'}</span></div></td>
-                      <td>{r.accion}</td>
+                      
+                      {/* LÓGICA VISUAL PARA LA ACCIÓN */}
+                      <td>
+                        {r.accion === 'excepcion_sala' ? (
+                          <span className="status-badge" style={{ backgroundColor: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.4)' }}>
+                            <AlertTriangle size={12} /> Excepción Sala
+                          </span>
+                        ) : (
+                          <span style={{ textTransform: 'capitalize' }}>{r.accion}</span>
+                        )}
+                      </td>
+                      
                       <td><span className="status-badge" style={{ backgroundColor: '#134074' }}>{r.modulo}</span></td>
-                      <td style={{ maxWidth: '320px', fontSize: '0.82rem', opacity: 0.85 }}>{r.detalle || '—'}</td>
+                      
+                      {/* LÓGICA VISUAL PARA EL DETALLE */}
+                      <td style={{ 
+                        maxWidth: '320px', 
+                        fontSize: '0.82rem', 
+                        opacity: r.accion === 'excepcion_sala' ? 1 : 0.85,
+                        color: r.accion === 'excepcion_sala' ? '#fbbf24' : 'inherit',
+                        fontWeight: r.accion === 'excepcion_sala' ? '500' : 'normal'
+                      }}>
+                        {r.detalle || '—'}
+                      </td>
+
                       <td>
                         <span className="status-badge" style={{ backgroundColor: r.resultado === 'exito' ? '#10b981' : '#ef4444' }}>
                           {r.resultado === 'exito' ? <CheckCircle size={12} /> : <XCircle size={12} />}

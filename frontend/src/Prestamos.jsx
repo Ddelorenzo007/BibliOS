@@ -32,7 +32,6 @@ export default function Prestamos() {
   const [socioSearch, setSocioSearch] = useState('');
   const [showSocioResults, setShowSocioResults] = useState(false);
   const [selectedSocioForm, setSelectedSocioForm] = useState(null);
-
   const [observaciones, setObservaciones] = useState('');
 
   // ===== Reservas =====
@@ -45,6 +44,9 @@ export default function Prestamos() {
   const [selectedSocioReserva, setSelectedSocioReserva] = useState(null);
 
   const socios = (sociosRaw || []).filter(s => s.estado === 'activo');
+
+  // El ejemplar elegido es de Sala: hay que justificar el préstamo (excepción)
+  const esEjemplarDeSala = selectedEjemplar?.tipoUbicacion === 'sala';
 
   // Búsqueda en vivo de ejemplares disponibles (no vive en el contexto global)
   useEffect(() => {
@@ -96,6 +98,7 @@ export default function Prestamos() {
       default: return '#6b7280';
     }
   };
+
   const getEstadoIcon = (estado) => {
     switch (estado) {
       case 'activo': return <Clock size={16} />;
@@ -111,11 +114,13 @@ export default function Prestamos() {
     setEjemplarSearch(`${ej.obraTitulo} — Ej. ${ej.numeroInventario}`);
     setShowEjemplarResults(false);
   };
+
   const selectSocioForm = (socio) => {
     setSelectedSocioForm(socio);
     setSocioSearch(`${socio.nombre} ${socio.apellido} (DNI ${socio.dni})`);
     setShowSocioResults(false);
   };
+
   const filteredSociosForm = socios.filter(s =>
     `${s.nombre} ${s.apellido} ${s.dni}`.toLowerCase().includes(socioSearch.toLowerCase())
   );
@@ -126,6 +131,17 @@ export default function Prestamos() {
       await window.nativeDialog.warning({ message: 'Faltan datos', detail: 'Elegí un ejemplar y un socio de la lista de resultados.' });
       return;
     }
+    
+    // Mismo chequeo que hace el backend, pero adelantado acá para no
+    // hacer un viaje al servidor si ya sabemos que lo va a rechazar.
+    if (esEjemplarDeSala && !observaciones.trim()) {
+      await window.nativeDialog.warning({
+        message: 'Este ejemplar es de Sala',
+        detail: 'Los ejemplares de Sala no se prestan salvo excepción justificada. Indicá el motivo en Observaciones para continuar.'
+      });
+      return;
+    }
+
     try {
       await window.electronAPI.createPrestamo({
         ejemplarId: selectedEjemplar.id,
@@ -174,14 +190,17 @@ export default function Prestamos() {
     (o.ejemplaresDisponibles || 0) === 0 &&
     `${o.titulo} ${o.isbn}`.toLowerCase().includes(obraSearch.toLowerCase())
   );
+
   const filteredSociosReserva = socios.filter(s =>
     `${s.nombre} ${s.apellido} ${s.dni}`.toLowerCase().includes(socioReservaSearch.toLowerCase())
   );
+
   const selectObraReserva = (obra) => {
     setSelectedObraReserva(obra);
     setObraSearch(obra.titulo);
     setShowObraResults(false);
   };
+
   const selectSocioReserva = (socio) => {
     setSelectedSocioReserva(socio);
     setSocioReservaSearch(`${socio.nombre} ${socio.apellido} (DNI ${socio.dni})`);
@@ -214,8 +233,6 @@ export default function Prestamos() {
     }
   };
 
-  // El ejemplar ya quedó apartado (estado "reservado") para este socio;
-  // createPrestamo detecta esa reserva coincidente y la cierra sola.
   const handleEntregarReserva = async (reserva) => {
     try {
       await window.electronAPI.createPrestamo({ ejemplarId: reserva.ejemplarAsignadoId, socioId: reserva.socioId });
@@ -321,7 +338,10 @@ export default function Prestamos() {
                               <div key={ej.id} className="search-result-item" onClick={() => selectEjemplar(ej)}>
                                 <Book size={16} />
                                 <div>
-                                  <strong>{ej.obraTitulo}</strong>
+                                  <strong>
+                                    {ej.obraTitulo}
+                                    {ej.tipoUbicacion === 'sala' && <span className="badge-ubicacion badge-sala" style={{ marginLeft: '0.5rem' }}>Sala</span>}
+                                  </strong>
                                   <span>Ej. {ej.numeroInventario} {ej.tomoNumero && ej.tomoNumero !== 'Único' ? `· ${ej.tomoNumero}` : ''}</span>
                                 </div>
                               </div>
@@ -353,9 +373,24 @@ export default function Prestamos() {
                       </div>
                     </div>
                   </div>
+
+                  {esEjemplarDeSala && (
+                    <div className="alerta-sala">
+                      <AlertTriangle size={16} />
+                      <span>Este ejemplar es de <strong>Sala</strong> (no circula normalmente). Para prestarlo como excepción, es obligatorio indicar el motivo abajo.</span>
+                    </div>
+                  )}
+
                   <div className="form-group">
-                    <label htmlFor="observaciones">Observaciones</label>
-                    <textarea id="observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} placeholder="Notas adicionales sobre el préstamo..." rows="3" />
+                    <label htmlFor="observaciones">
+                      Observaciones {esEjemplarDeSala && <span style={{ color: "#ef4444" }}>* (obligatorio: motivo de la excepción)</span>}
+                    </label>
+                    <textarea
+                      id="observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)}
+                      placeholder={esEjemplarDeSala ? 'Ej: préstamo autorizado al docente para preparar una clase' : 'Notas adicionales sobre el préstamo...'}
+                      rows="3"
+                      required={esEjemplarDeSala}
+                    />
                   </div>
                   <div className="form-actions">
                     <button type="submit" className="submit-button"><Plus size={18} />Crear Préstamo</button>
@@ -505,7 +540,6 @@ export default function Prestamos() {
                 </form>
               </div>
             )}
-
             <div className="table-section">
               <div className="table-header">
                 <h3>Reservas</h3>
