@@ -4,10 +4,12 @@ import { LogIn, X, AlertCircle, Eye, EyeOff, Info } from 'lucide-react';
 import './Login.css';
 import Navbar from './Navbar.jsx';
 import { useAuth } from './hooks/useAuth.js';
+import { useData } from './context/DataContext.jsx';
 
 function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { refreshAll } = useData();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -54,7 +56,7 @@ function Login() {
     }, 10);
   };
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
@@ -63,6 +65,9 @@ function Login() {
       const result = await login(username.trim(), password);
 
       if (result.success) {
+        // 3. OBLIGAMOS AL SISTEMA A TRAER LOS DATOS ANTES DE CAMBIAR DE PANTALLA
+        await refreshAll(); 
+        
         navigate('/dashboard');
       } else {
         setError(result.message || 'Usuario o contraseña incorrectos');
