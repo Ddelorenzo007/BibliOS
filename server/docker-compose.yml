@@ -17,11 +17,11 @@ services:
     build: .
     container_name: biblios_api
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
       # IMPORTANTE: El host ahora es el nombre del servicio de BD ('postgres'), no 'localhost'
       DATABASE_URL: postgres://postgres:biblios_password@postgres:5432/biblios_db
-      PORT: 3000
+      PORT: 3001
       JWT_SECRET: tu_secreto_jwt_super_seguro
     depends_on:
       - postgres

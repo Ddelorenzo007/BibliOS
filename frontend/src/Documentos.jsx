@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Plus, Search, FileText, File, Menu, Trash2, Upload, Calendar, Tag
 } from 'lucide-react';
@@ -17,6 +17,10 @@ export default function Documentos() {
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState(FORM_VACIO);
+
+  // ¡Acá van los hooks! Adentro de la función Documentos()
+  const [archivo, setArchivo] = useState(null); 
+  const fileInputRef = useRef(null);      
 
   const cargarDocumentos = async () => {
     if (!window.electronAPI) return;
@@ -38,46 +42,45 @@ export default function Documentos() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleElegirArchivo = async () => {
-    try {
-      const resultado = await window.nativeDialog.open({
-        title: 'Seleccionar documento',
-        filters: [{ name: 'Documentos', extensions: ['pdf', 'doc', 'docx'] }]
-      });
-      if (resultado.canceled || !resultado.filePaths?.length) return;
+  const handleElegirArchivo = () => {
+    // Simulamos un clic en el input de archivo oculto
+    fileInputRef.current.click();
+  };
 
-      const rutaCompleta = resultado.filePaths[0];
-      const nombreArchivo = rutaCompleta.split(/[\\/]/).pop();
-      const extension = nombreArchivo.split('.').pop().toLowerCase();
-
-      setFormData(prev => ({
-        ...prev,
-        rutaArchivo: rutaCompleta,
-        tipo: ['pdf', 'doc', 'docx'].includes(extension) ? extension : 'pdf',
-        nombre: prev.nombre || nombreArchivo.replace(/\.[^/.]+$/, '')
-      }));
-    } catch (error) {
-      console.error('Error al elegir archivo:', error);
-    }
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const extension = file.name.split('.').pop().toLowerCase();
+    
+    setArchivo(file);
+    setFormData(prev => ({
+      ...prev,
+      tipo: ['pdf', 'doc', 'docx'].includes(extension) ? extension : 'pdf',
+      nombre: prev.nombre || file.name.replace(/\.[^/.]+$/, '')
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.rutaArchivo) {
+    if (!archivo) {
       await window.nativeDialog.warning({ message: 'Falta el archivo', detail: 'Elegí un archivo PDF, DOC o DOCX antes de guardar.' });
       return;
     }
     try {
-      await window.electronAPI.subirDocumento({
-        nombre: formData.nombre,
-        categoria: formData.categoria,
-        rutaArchivo: formData.rutaArchivo,
-        tipo: formData.tipo,
-        descripcion: formData.descripcion || null,
-        usuarioId: currentUser?.id
-      });
+      // Empaquetamos como FormData
+      const data = new FormData();
+      data.append('nombre', formData.nombre);
+      data.append('categoria', formData.categoria);
+      if (formData.descripcion) data.append('descripcion', formData.descripcion);
+      data.append('tipo', formData.tipo);
+      data.append('archivo', archivo); 
+      
+      await window.electronAPI.subirDocumento(data);
+      
       await cargarDocumentos();
       setFormData(FORM_VACIO);
+      setArchivo(null); 
       setShowForm(false);
     } catch (error) {
       console.error('Error al subir documento:', error);
@@ -125,10 +128,17 @@ export default function Documentos() {
             <form onSubmit={handleSubmit} className="prestamo-form">
               <div className="form-row">
                 <div className="form-group">
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    style={{ display: 'none' }} 
+                    accept=".pdf,.doc,.docx" 
+                    onChange={handleFileChange} 
+                  />
                   <button type="button" className="submit-button" onClick={handleElegirArchivo} style={{ width: '100%', justifyContent: 'center' }}>
-                    <Upload size={16} />{formData.rutaArchivo ? 'Cambiar archivo' : 'Elegir archivo (PDF/DOC/DOCX)'}
+                    <Upload size={16} />{archivo ? 'Cambiar archivo' : 'Elegir archivo (PDF/DOC/DOCX)'}
                   </button>
-                  {formData.rutaArchivo && <p style={{ fontSize: '0.78rem', opacity: 0.7, marginTop: '0.4rem' }}>{formData.rutaArchivo.split(/[\\/]/).pop()}</p>}
+                  {archivo && <p style={{ fontSize: '0.78rem', opacity: 0.7, marginTop: '0.4rem' }}>{archivo.name}</p>}
                 </div>
                 <div className="form-group">
                   <label htmlFor="nombre">Nombre <span style={{ color: "#ef4444" }}>*</span></label>

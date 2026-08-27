@@ -37,25 +37,28 @@ function toQueryString(params = {}) {
 }
 
 async function request(method, path, body) {
-    const headers = { 'Content-Type': 'application/json' };
+    const headers = {};
     const token = getToken();
     if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    // LÓGICA NUEVA: Si NO es FormData, usamos JSON. 
+    // Si ES FormData, el navegador asigna automáticamente el Content-Type multipart con su boundary.
+    let fetchBody = body;
+    if (body !== undefined && !(body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+        fetchBody = JSON.stringify(body);
+    }
 
     const res = await fetch(`${API_URL}${path}`, {
         method,
         headers,
-        body: body !== undefined ? JSON.stringify(body) : undefined
+        body: fetchBody
     });
 
     let data = null;
     try { data = await res.json(); } catch (_) { /* respuesta sin cuerpo JSON */ }
 
     if (res.status === 401) {
-        // El token venció o quedó inválido (ej: el servidor se reinició con
-        // otro JWT_SECRET). Sin este manejo, la app queda en un estado roto:
-        // "isAuthenticated" sigue en true (guardado aparte, en la sesión),
-        // pero cualquier pedido al servidor va a seguir fallando en bucle.
-        // Se limpia todo y se fuerza la vuelta a /login con una sesión limpia.
         clearToken();
         localStorage.removeItem('biblios_session');
         if (!window.location.hash.includes('/login') && window.location.pathname !== '/login') {
@@ -65,9 +68,6 @@ async function request(method, path, body) {
     }
 
     if (!res.ok) {
-        // Igual que antes con los errores lanzados desde database.js: el
-        // mensaje llega tal cual para mostrarlo en los diálogos de error
-        // de cada pantalla (window.nativeDialog.error({ detail: error.message })).
         const mensaje = (data && (data.error || data.message)) || `Error ${res.status}`;
         throw new Error(mensaje);
     }
