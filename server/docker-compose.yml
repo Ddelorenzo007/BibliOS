@@ -26,6 +26,7 @@ services:
     depends_on:
       - postgres
     restart: unless-stopped
-
+    volumes:
+      - ./uploads:/app/uploads
 volumes:
   postgres_data:
