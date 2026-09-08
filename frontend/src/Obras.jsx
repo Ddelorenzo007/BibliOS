@@ -257,9 +257,13 @@ export default function Obras() {
 
   const recargarDetalle = async () => {
     if (!selectedObra) return;
-    const obraCompleta = await window.electronAPI.getObraById(selectedObra.id);
-    setSelectedObra(obraCompleta);
-    refreshObras();
+    try {
+      const obraCompleta = await window.electronAPI.getObraById(selectedObra.id);
+      setSelectedObra({ ...obraCompleta }); // Forzamos nueva referencia para disparar el render
+      refreshObras();
+    } catch (error) {
+      console.error('Error al recargar detalle:', error);
+    }
   };
 
   const handleAgregarEjemplar = async (e) => {
@@ -627,7 +631,7 @@ export default function Obras() {
                           <span style={{ display: 'flex', gap: '0.4rem' }}>
                             <select
                               className="ejemplar-estado-select"
-                              value={ej.tipoUbicacion || 'deposito'}
+                              value={ej.tipoUbicacion || ej.tipoubication || ej.tipoubicacion || 'deposito'}
                               onChange={(e) => handleCambiarTipoUbicacion(ej.id, e.target.value)}
                               title="Depósito (se presta) o Sala (solo consulta en el lugar)"
                             >
