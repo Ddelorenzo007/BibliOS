@@ -1357,8 +1357,71 @@ async function insertSampleData() {
     };
 }
 
+const sql = require('mssql');
+
+// Conexión exclusiva y separada para la base de datos del .bak de la facultad
+const dbConfigAcademica = {
+    user: 'sa',
+    password: 'DeployUser2026$',
+    server: 'host.docker.internal',
+    database: 'SysAcad', // El nombre real de la base del .bak en tu SSMS
+    options: {
+        encrypt: false,
+        trustServerCertificate: true
+    }
+};
+
+async function buscarPersonaEnSistemaAcademico(dni) {
+    try {
+        await sql.connect(dbConfigAcademica);
+        
+        const result = await sql.query`
+            SELECT 
+                p.nombre AS NombreCompleto,
+                p.mail AS Email,
+                p.telefono AS Telefono,
+                a.legajo AS Legajo
+            FROM 
+                dbo.Persona p
+            LEFT JOIN 
+                dbo.alumno a ON p.numerodocu = a.numerodocu
+            WHERE 
+                p.numerodocu = ${dni}
+        `;
+
+        if (result.recordset.length === 0) return null;
+
+        const row = result.recordset[0];
+
+        let nombreFinal = row.NombreCompleto;
+        let apellidoFinal = "";
+
+        if (row.NombreCompleto.includes(',')) {
+            const partes = row.NombreCompleto.split(',');
+            apellidoFinal = partes[0].trim();
+            nombreFinal = partes[1].trim();
+        } else {
+            const partes = row.NombreCompleto.trim().split(' ');
+            apellidoFinal = partes.pop();
+            nombreFinal = partes.join(' ');
+        }
+
+        return {
+            nombre: nombreFinal,
+            apellido: apellidoFinal,
+            email: row.Email || '',
+            telefono: row.Telefono || '',
+            legajo: row.Legajo || null,
+            tipoSocio: row.Legajo ? 'alumno' : 'docente'
+        };
+    } catch (err) {
+        console.error("Error al consultar la BD académica:", err);
+        throw err;
+    }
+}
+
 module.exports = {
-    Validators, hashPassword, generateSalt,
+    Validators, hashPassword, generateSalt, buscarPersonaEnSistemaAcademico,
     seedDefaultUsuario, createUsuario, getUsuarioById, login, getUsuarios, toggleEstadoUsuario,
     getPersonas,
     createObra, getObras, getObraById, updateObra, darDeBajaObra,

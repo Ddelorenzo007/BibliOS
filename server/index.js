@@ -23,6 +23,17 @@ app.use('/api', sociosRoutes);
 app.use('/api', prestamosRoutes);
 app.use('/api', otrosRoutes);
 
+app.get('/api/academico/buscar/:dni', async (req, res) => {
+    try {
+        const { dni } = req.params;
+        const resultado = await db.buscarPersonaEnSistemaAcademico(dni);
+        res.json(resultado);
+    } catch (error) {
+        console.error("Error al consultar el sistema académico:", error);
+        res.status(500).json({ error: "Error al consultar el sistema académico" });
+    }
+});
+
 // Manejador de errores genérico (por si algo se escapa de los try/catch de las rutas)
 app.use((err, req, res, next) => {
     console.error('Error no manejado:', err);

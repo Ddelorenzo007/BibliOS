@@ -5,6 +5,16 @@ const { registerDialogsIPC } = require('./dialogs');
 // Mantener una referencia global del objeto de ventana
 let mainWindow;
 let databaseHandlers;
+const dbQueries = require('../../server/db/queries'); // Ajusta los niveles de ruta según corresponda
+
+ipcMain.handle('buscarEnSistemaAcademico', async (event, dni) => {
+    try {
+        return await dbQueries.buscarPersonaEnSistemaAcademico(dni);
+    } catch (error) {
+        console.error('Error en IPC buscarEnSistemaAcademico:', error);
+        throw error;
+    }
+});
 
 function createWindow() {
   // Crear la ventana del navegador
