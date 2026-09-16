@@ -162,6 +162,9 @@ window.electronAPI = {
     getSociosConMasPrestamos: (limit = 10) => get(`/reportes/socios-mas-prestamos${toQueryString({ limit })}`),
     getEstadisticasMensuales: (meses = 6) => get(`/reportes/estadisticas-mensuales${toQueryString({ meses })}`),
 
+    // ===== SISTEMA ACADÉMICO (BD .bak) =====
+    buscarEnSistemaAcademico: (dni) => get(`/academico/buscar/${dni}`),
+
     // ===== DATOS FICTICIOS DE DEMOSTRACIÓN =====
     insertSampleData: () => post('/seed-demo'),
 };

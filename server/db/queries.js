@@ -83,6 +83,7 @@ const CAMEL_MAP = {
     ejemplaresdisponibles: 'ejemplaresDisponibles', autorestexto: 'autoresTexto',
     tomonumero: 'tomoNumero', obratitulo: 'obraTitulo', socionombre: 'socioNombre',
     socioapellido: 'socioApellido', sociodni: 'socioDni', usuarionombre: 'usuarioNombre',
+    tipoubication: 'tipoUbicacion',
     tipoubicacion: 'tipoUbicacion',
 };
 
@@ -384,7 +385,7 @@ async function getObraById(id) {
     const tomosRes = await pool.query('SELECT * FROM tomos WHERE obraId = $1 ORDER BY numero ASC', [id]);
     obra.tomos = camelizeRows(tomosRes.rows);
     for (const tomo of obra.tomos) {
-        const ejemplaresRes = await pool.query('SELECT * FROM ejemplares WHERE tomoId = $1 ORDER BY numeroInventario ASC', [tomo.id]);
+        const ejemplaresRes = await pool.query('SELECT *, tipoubication AS "tipoUbicacion" FROM ejemplares WHERE tomoId = $1 ORDER BY numeroInventario ASC', [tomo.id]);
         tomo.ejemplares = camelizeRows(ejemplaresRes.rows);
     }
 
@@ -491,10 +492,14 @@ async function getTomosByObra(obraId) {
 
 async function createEjemplar(ejemplarData) {
     try {
+        console.log("Datos recibidos para CREAR ejemplar:", ejemplarData); // <-- AGREGA ESTO
         const id = await withTransaction(async (client) => {
             Validators.validateRequired(ejemplarData.tomoId, 'tomoId');
             Validators.validateRequired(ejemplarData.numeroInventario, 'numeroInventario');
-            const tipoUbicacion = ejemplarData.tipoUbicacion || 'deposito';
+            
+            // Aceptamos cualquier variante que envíe el frontend
+            const tipoUbicacion = ejemplarData.tipoUbicacion || ejemplarData.tipo_ubicacion || ejemplarData.tipoubication || 'deposito';
+            console.log("Tipo de ubicación detectado para inserción:", tipoUbicacion); // <-- Y ESTO
             if (!['deposito', 'sala'].includes(tipoUbicacion)) {
                 throw new Error('El tipo de ubicación debe ser "deposito" o "sala"');
             }
@@ -506,7 +511,7 @@ async function createEjemplar(ejemplarData) {
             if (duplicado.rows.length > 0) throw new Error(`El número de inventario manual "${ejemplarData.numeroInventario}" ya existe.`);
 
             const result = await client.query(
-                `INSERT INTO ejemplares (tomoId, numeroControl, numeroInventario, ubicacion, estado, tipoUbicacion)
+                `INSERT INTO ejemplares (tomoId, numeroControl, numeroInventario, ubicacion, estado, tipoubication)
                  VALUES ($1, 'TEMP', $2, $3, $4, $5) RETURNING id`,
                 [ejemplarData.tomoId, ejemplarData.numeroInventario, ejemplarData.ubicacion || null, ejemplarData.estado || 'disponible', tipoUbicacion]
             );
@@ -526,7 +531,7 @@ async function createEjemplar(ejemplarData) {
 
 async function getEjemplares(filters = {}) {
     let query = `
-        SELECT ej.*, t.numero as "tomoNumero", o.isbn, o.id as "obraId", o.titulo as "obraTitulo"
+        SELECT ej.*, ej.tipoubication AS "tipoUbicacion", t.numero as "tomoNumero", o.isbn, o.id as "obraId", o.titulo as "obraTitulo"
         FROM ejemplares ej
         JOIN tomos t ON ej.tomoId = t.id
         JOIN obras o ON t.obraId = o.id
@@ -548,7 +553,7 @@ async function getEjemplares(filters = {}) {
 
 async function getEjemplarById(id) {
     const { rows } = await pool.query(`
-        SELECT ej.*, t.numero as "tomoNumero", o.isbn, o.id as "obraId", o.titulo as "obraTitulo"
+        SELECT ej.*, ej.tipoubication AS "tipoUbicacion", ej.tipoubication AS "tipoubication", t.numero as "tomoNumero", o.isbn, o.id as "obraId", o.titulo as "obraTitulo"
         FROM ejemplares ej
         JOIN tomos t ON ej.tomoId = t.id
         JOIN obras o ON t.obraId = o.id
@@ -559,18 +564,37 @@ async function getEjemplarById(id) {
 
 async function updateEjemplar(id, updates) {
     try {
-        if (updates.tipoUbicacion !== undefined && !['deposito', 'sala'].includes(updates.tipoUbicacion)) {
-            throw new Error('El tipo de ubicación debe ser "deposito" o "sala"');
-        }
         const fields = [];
         const values = [];
-        ['ubicacion', 'estado', 'tipoUbicacion'].forEach(key => {
-            if (updates[key] !== undefined) { values.push(updates[key]); fields.push(`${key} = $${values.length}`); }
-        });
+
+        if (updates.ubicacion !== undefined) {
+            values.push(updates.ubicacion);
+            fields.push(`ubicacion = $${values.length}`);
+        }
+
+        if (updates.estado !== undefined) {
+            values.push(updates.estado);
+            fields.push(`estado = $${values.length}`);
+        }
+
+        // Capturamos cualquier variante enviada al actualizar
+        const tipoUb = updates.tipoUbicacion !== undefined ? updates.tipoUbicacion : (updates.tipo_ubicacion !== undefined ? updates.tipo_ubicacion : updates.tipoubication);
+        
+        if (tipoUb !== undefined) {
+            if (!['deposito', 'sala'].includes(tipoUb)) {
+                throw new Error('El tipo de ubicación debe ser "deposito" o "sala"');
+            }
+            values.push(tipoUb);
+            fields.push(`tipoubication = $${values.length}`);
+        }
+
         if (fields.length === 0) return false;
+
         values.push(id);
-        const result = await pool.query(`UPDATE ejemplares SET ${fields.join(', ')} WHERE id = $${values.length}`, values);
-        await registrarAuditoria(pool, updates.usuarioId, 'modificar', 'ejemplares', id, `Estado actualizado: ${updates.estado || ''}`);
+        const queryText = `UPDATE ejemplares SET ${fields.join(', ')} WHERE id = $${values.length}`;
+        const result = await pool.query(queryText, values);
+        
+        await registrarAuditoria(pool, updates.usuarioId, 'modificar', 'ejemplares', id, `Ejemplar actualizado`);
         return result.rowCount > 0;
     } catch (error) {
         console.error('Error al actualizar ejemplar:', error);
@@ -1357,8 +1381,71 @@ async function insertSampleData() {
     };
 }
 
+const sql = require('mssql');
+
+// Conexión exclusiva y separada para la base de datos del .bak de la facultad
+const dbConfigAcademica = {
+    user: 'sa',
+    password: 'DeployUser2026$',
+    server: 'host.docker.internal',
+    database: 'SysAcad', // El nombre real de la base del .bak en tu SSMS
+    options: {
+        encrypt: false,
+        trustServerCertificate: true
+    }
+};
+
+async function buscarPersonaEnSistemaAcademico(dni) {
+    try {
+        await sql.connect(dbConfigAcademica);
+        
+        const result = await sql.query`
+            SELECT 
+                p.nombre AS NombreCompleto,
+                p.mail AS Email,
+                p.telefono AS Telefono,
+                a.legajo AS Legajo
+            FROM 
+                dbo.Persona p
+            LEFT JOIN 
+                dbo.alumno a ON p.numerodocu = a.numerodocu
+            WHERE 
+                p.numerodocu = ${dni}
+        `;
+
+        if (result.recordset.length === 0) return null;
+
+        const row = result.recordset[0];
+
+        let nombreFinal = row.NombreCompleto;
+        let apellidoFinal = "";
+
+        if (row.NombreCompleto.includes(',')) {
+            const partes = row.NombreCompleto.split(',');
+            apellidoFinal = partes[0].trim();
+            nombreFinal = partes[1].trim();
+        } else {
+            const partes = row.NombreCompleto.trim().split(' ');
+            apellidoFinal = partes.pop();
+            nombreFinal = partes.join(' ');
+        }
+
+        return {
+            nombre: nombreFinal,
+            apellido: apellidoFinal,
+            email: row.Email || '',
+            telefono: row.Telefono || '',
+            legajo: row.Legajo || null,
+            tipoSocio: row.Legajo ? 'alumno' : 'docente'
+        };
+    } catch (err) {
+        console.error("Error al consultar la BD académica:", err);
+        throw err;
+    }
+}
+
 module.exports = {
-    Validators, hashPassword, generateSalt,
+    Validators, hashPassword, generateSalt, buscarPersonaEnSistemaAcademico,
     seedDefaultUsuario, createUsuario, getUsuarioById, login, getUsuarios, toggleEstadoUsuario,
     getPersonas,
     createObra, getObras, getObraById, updateObra, darDeBajaObra,
