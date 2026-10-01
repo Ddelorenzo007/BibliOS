@@ -1,32 +1,25 @@
 // ============================================================================
 // Cliente HTTP que reemplaza preload.js/IPC para todo lo relacionado a datos.
-// Expone exactamente la misma superficie que tenía window.electronAPI antes
-// (mismos nombres de método, mismos argumentos, misma forma de respuesta),
-// para que NINGUNA pantalla (Obras.jsx, Socios.jsx, Prestamos.jsx, etc.)
-// necesite cambiar una sola línea. Lo único que cambia es CÓMO se obtienen
-// los datos: antes por IPC hacia el proceso principal de Electron (que leía
-// SQLite directo), ahora por HTTP hacia el servidor Express (que lee
-// PostgreSQL). Los diálogos nativos (window.nativeDialog) siguen viviendo
-// en preload.js/Electron sin cambios, porque esos sí necesitan acceso al
-// sistema operativo.
 // ============================================================================
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-const TOKEN_KEY = 'biblios_token';
 
-function getToken() {
-    return localStorage.getItem(TOKEN_KEY);
-}
-function setToken(token) {
-    localStorage.setItem(TOKEN_KEY, token);
-}
-function clearToken() {
-    localStorage.removeItem(TOKEN_KEY);
+// Ahora el token lo obtiene de forma asíncrona usando el puente seguro de Electron.
+// Si no está en Electron (ej. navegador web en desarrollo), usa localStorage como fallback.
+async function getToken() {
+    if (window.authAPI && window.authAPI.getToken) {
+        return await window.authAPI.getToken();
+    }
+    return localStorage.getItem('biblios_token');
 }
 
-// Arma la query string a partir de un objeto de filtros, ignorando valores
-// vacíos/undefined (mismo comportamiento laxo que tenían los métodos
-// getX(filters) del preload.js viejo).
+async function clearToken() {
+    if (window.authAPI && window.authAPI.removeToken) {
+        await window.authAPI.removeToken();
+    }
+    localStorage.removeItem('biblios_token');
+}
+
 function toQueryString(params = {}) {
     const usp = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
@@ -38,20 +31,23 @@ function toQueryString(params = {}) {
 
 async function request(method, path, body) {
     const headers = {};
-    const token = getToken();
+    
+    // Esperamos el token cifrado desde safeStorage antes de armar la petición
+    const token = await getToken();
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    // LÓGICA NUEVA: Si NO es FormData, usamos JSON. 
-    // Si ES FormData, el navegador asigna automáticamente el Content-Type multipart con su boundary.
     let fetchBody = body;
     if (body !== undefined && !(body instanceof FormData)) {
         headers['Content-Type'] = 'application/json';
         fetchBody = JSON.stringify(body);
     }
 
-    const res = await fetch(`${API_URL}${path}`, {
-        method,
-        headers,
+    const baseUrl = "http://localhost:3001/api";
+    const finalUrl = baseUrl + path;
+
+    const res = await fetch(finalUrl, {
+        method: method,
+        headers: headers,
         body: fetchBody
     });
 
@@ -59,7 +55,7 @@ async function request(method, path, body) {
     try { data = await res.json(); } catch (_) { /* respuesta sin cuerpo JSON */ }
 
     if (res.status === 401) {
-        clearToken();
+        await clearToken();
         localStorage.removeItem('biblios_session');
         if (!window.location.hash.includes('/login') && window.location.pathname !== '/login') {
             window.location.href = '/login';
@@ -82,13 +78,17 @@ window.electronAPI = {
     // ===== AUTENTICACIÓN =====
     login: async (usuario, password) => {
         const resultado = await post('/auth/login', { usuario, password });
-        if (resultado.success && resultado.token) setToken(resultado.token);
-        // Se devuelve la misma forma que antes (success + usuario), el
-        // token queda guardado acá adentro sin que useAuth.js tenga que
-        // saber que existe.
-        return { success: resultado.success, message: resultado.message, usuario: resultado.usuario };
+        
+        // Ya NO hacemos setToken() en localStorage acá. 
+        // Devolvemos el token explícitamente para que useAuth.js lo encripte.
+        return { 
+            success: resultado.success, 
+            message: resultado.message, 
+            usuario: resultado.usuario,
+            token: resultado.token 
+        };
     },
-    logout: () => clearToken(),
+    logout: async () => await clearToken(),
 
     // ===== PERSONAS =====
     getPersonas: (filters = {}) => get(`/personas${toQueryString(filters)}`),

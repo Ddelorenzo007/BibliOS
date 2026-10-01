@@ -33,7 +33,7 @@ export default function Obras() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategoria, setFilterCategoria] = useState('todas');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [selectedObra, setSelectedObra] = useState(null); // obra completa (con tomos/ejemplares) para el modal de detalle
+  const [selectedObra, setSelectedObra] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [obraToDelete, setObraToDelete] = useState(null);
@@ -45,13 +45,26 @@ export default function Obras() {
 
   const [formData, setFormData] = useState(OBRA_FORM_VACIO);
   const [personas, setPersonas] = useState([{ nombre: '', apellido: '', rol: 'autor' }]);
-
-  // Estado del mini-formulario "agregar ejemplar" dentro del modal de detalle
   const [nuevoEjemplar, setNuevoEjemplar] = useState({ tomoId: '', numeroInventario: '', ubicacion: '', tipoUbicacion: 'deposito' });
 
   useEffect(() => {
     setObras(obrasRaw || []);
   }, [obrasRaw]);
+
+  // Manejo de la tecla Escape para cumplir con WCAG 2.1.1/2.1.2
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setShowDetails(false);
+        setShowDeleteConfirm(false);
+        setShowEditModal(false);
+        setShowForm(false);
+        setShowFilterDropdown(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const getEstadoColor = (estado) => {
     switch (estado) {
@@ -65,37 +78,24 @@ export default function Obras() {
     }
   };
 
-  const getEstadoIcon = (estado) => {
-    switch (estado) {
-      case 'disponible': return <CheckCircle size={14} />;
-      case 'prestado': return <Clock size={14} />;
-      case 'en_reparacion': return <AlertTriangle size={14} />;
-      default: return <Circle size={14} />;
-    }
-  };
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
   const handleInputClick = (e) => { e.target.focus(); e.target.select(); };
 
-  // ===== Autores dinámicos (alta) =====
   const addPersonaRow = () => setPersonas(prev => [...prev, { nombre: '', apellido: '', rol: 'autor' }]);
   const removePersonaRow = (idx) => setPersonas(prev => prev.filter((_, i) => i !== idx));
   const updatePersonaRow = (idx, field, value) => {
     setPersonas(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p));
   };
 
-  // ===== Autores dinámicos (edición) =====
   const addEditPersonaRow = () => setEditPersonas(prev => [...prev, { nombre: '', apellido: '', rol: 'autor' }]);
   const removeEditPersonaRow = (idx) => setEditPersonas(prev => prev.filter((_, i) => i !== idx));
   const updateEditPersonaRow = (idx, field, value) => {
     setEditPersonas(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p));
   };
 
-  // Búsqueda automática por ISBN (Open Library). Autocompleta datos generales
-  // y, si encuentra autores, reemplaza la primera fila de personas.
   const handleAutoSearch = async () => {
     if (!formData.isbn.trim()) {
       await window.nativeDialog.warning({ message: 'ISBN requerido', detail: 'Ingresá el ISBN para buscar automáticamente.' });
@@ -141,7 +141,6 @@ export default function Obras() {
     e.preventDefault();
     try {
       if (!window.electronAPI) return;
-
       const personasValidas = personas.filter(p => p.nombre.trim());
       if (personasValidas.length === 0) {
         await window.nativeDialog.warning({ message: 'Falta el autor', detail: 'Ingresá al menos un autor o responsable.' });
@@ -240,7 +239,6 @@ export default function Obras() {
     }
   };
 
-  // ===== Modal de detalle: carga la obra completa (con tomos/ejemplares) =====
   const abrirDetalle = async (obra) => {
     try {
       const obraCompleta = await window.electronAPI.getObraById(obra.id);
@@ -259,7 +257,7 @@ export default function Obras() {
     if (!selectedObra) return;
     try {
       const obraCompleta = await window.electronAPI.getObraById(selectedObra.id);
-      setSelectedObra({ ...obraCompleta }); // Forzamos nueva referencia para disparar el render
+      setSelectedObra({ ...obraCompleta });
       refreshObras();
     } catch (error) {
       console.error('Error al recargar detalle:', error);
@@ -321,7 +319,6 @@ export default function Obras() {
     }
   };
 
-  // Filtrado y búsqueda
   const categoriasDisponibles = [...new Set(obras.map(o => o.categoria).filter(Boolean))];
   const filteredObras = obras.filter(obra => {
     const matchesSearch = searchTerm === '' ||
@@ -339,9 +336,6 @@ export default function Obras() {
     sinStock: obras.filter(o => (o.ejemplaresDisponibles || 0) === 0).length
   };
 
-  // En la lista (getObras) los autores vienen como texto plano ya armado
-  // (autoresTexto); en el detalle (getObraById) vienen como array (personas)
-  // porque ahí sí se necesita cada nombre/apellido/rol por separado.
   const formatearAutores = (obra) => {
     if (obra.personas && obra.personas.length > 0) {
       return obra.personas.map(p => `${p.nombre} ${p.apellido || ''}`.trim()).join(', ');
@@ -351,25 +345,25 @@ export default function Obras() {
 
   return (
     <>
-      <button className="mobile-menu-toggle" onClick={() => setIsSidebarOpen(true)} aria-label="Abrir menú">
+      <button className="mobile-menu-toggle" onClick={() => setIsSidebarOpen(true)} aria-label="Abrir menú de navegación">
         <Menu size={24} />
       </button>
 
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-      <div className="libros-container">
-        <div className="libros-header">
+      <main className="libros-container">
+        <header className="libros-header">
           <div className="header-content">
             <h1>Gestión de Obras</h1>
             <span className="header-separator">|</span>
             <p>Administrá el catálogo bibliográfico, tomos y ejemplares</p>
           </div>
-          <button className="add-button" onClick={() => setShowForm(!showForm)}>
+          <button className="add-button" onClick={() => setShowForm(!showForm)} aria-expanded={showForm}>
             <Plus size={18} />
             Nueva Obra
           </button>
-        </div>
+        </header>
 
-        <div className="stats-grid">
+        <section className="stats-grid" aria-label="Estadísticas generales">
           <div className="stat-card">
             <div className="stat-icon"><Book size={20} strokeWidth={1.5} /></div>
             <div className="stat-content"><h3>Total Obras</h3><p className="stat-value">{stats.total}</p></div>
@@ -386,11 +380,11 @@ export default function Obras() {
             <div className="stat-icon"><AlertTriangle size={20} strokeWidth={1.5} /></div>
             <div className="stat-content"><h3>Obras sin stock</h3><p className="stat-value">{stats.sinStock}</p></div>
           </div>
-        </div>
+        </section>
 
         {showForm && (
-          <div className="form-section">
-            <h3>Nueva Obra</h3>
+          <section className="form-section" aria-labelledby="form-obra-title">
+            <h3 id="form-obra-title">Nueva Obra</h3>
             <form onSubmit={handleSubmit} className="libro-form">
               <div className="form-row">
                 <div className="form-group">
@@ -411,18 +405,35 @@ export default function Obras() {
                 </div>
               </div>
 
-              {/* Autores / responsables dinámicos */}
               <div className="form-row" style={{ display: 'block' }}>
-                <label>Autores / Responsables <span style={{ color: "#ef4444" }}>*</span></label>
+                <label id="autores-label">Autores / Responsables <span style={{ color: "#ef4444" }}>*</span></label>
                 {personas.map((p, idx) => (
                   <div className="autor-row" key={idx}>
-                    <input type="text" placeholder="Nombre" value={p.nombre} onChange={e => updatePersonaRow(idx, 'nombre', e.target.value)} onClick={handleInputClick} />
-                    <input type="text" placeholder="Apellido" value={p.apellido} onChange={e => updatePersonaRow(idx, 'apellido', e.target.value)} onClick={handleInputClick} />
-                    <select value={p.rol} onChange={e => updatePersonaRow(idx, 'rol', e.target.value)}>
+                    <input 
+                      type="text" 
+                      placeholder="Nombre" 
+                      aria-label={`Nombre del autor ${idx + 1}`}
+                      value={p.nombre} 
+                      onChange={e => updatePersonaRow(idx, 'nombre', e.target.value)} 
+                      onClick={handleInputClick} 
+                    />
+                    <input 
+                      type="text" 
+                      placeholder="Apellido" 
+                      aria-label={`Apellido del autor ${idx + 1}`}
+                      value={p.apellido} 
+                      onChange={e => updatePersonaRow(idx, 'apellido', e.target.value)} 
+                      onClick={handleInputClick} 
+                    />
+                    <select 
+                      value={p.rol} 
+                      onChange={e => updatePersonaRow(idx, 'rol', e.target.value)}
+                      aria-label={`Rol del autor ${idx + 1}`}
+                    >
                       {ROLES_PERSONA.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                     </select>
                     {personas.length > 1 && (
-                      <button type="button" className="remove-autor-btn" onClick={() => removePersonaRow(idx)} title="Quitar">
+                      <button type="button" className="remove-autor-btn" onClick={() => removePersonaRow(idx)} aria-label={`Quitar autor ${idx + 1}`}>
                         <X size={14} />
                       </button>
                     )}
@@ -492,27 +503,40 @@ export default function Obras() {
                 <button type="button" className="cancel-button" onClick={() => setShowForm(false)}>Cancelar</button>
               </div>
             </form>
-          </div>
+          </section>
         )}
 
         <div className="filters-section">
           <div className="search-box">
             <Search size={16} />
-            <input type="text" placeholder="Buscar por título, ISBN o autor..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <input 
+              type="text" 
+              placeholder="Buscar por título, ISBN o autor..." 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)} 
+              aria-label="Buscar por título, ISBN o autor"
+            />
           </div>
           <div className="filter-box custom-dropdown">
             <Filter size={16} />
-            <div className="dropdown-trigger" onClick={() => setShowFilterDropdown(!showFilterDropdown)}>
+            <button 
+              type="button" 
+              className="dropdown-trigger" 
+              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+              aria-expanded={showFilterDropdown}
+              aria-haspopup="listbox"
+              aria-label="Filtrar por categoría"
+            >
               {filterCategoria === 'todas' ? 'Todas las categorías' : filterCategoria}
-              <span className="dropdown-arrow">▼</span>
-            </div>
+              <span className="dropdown-arrow" aria-hidden="true">▼</span>
+            </button>
             {showFilterDropdown && (
-              <div className="dropdown-menu">
-                <div className={`dropdown-item ${filterCategoria === 'todas' ? 'active' : ''}`} onClick={() => { setFilterCategoria('todas'); setShowFilterDropdown(false); }}>
+              <div className="dropdown-menu" role="listbox">
+                <div className={`dropdown-item ${filterCategoria === 'todas' ? 'active' : ''}`} onClick={() => { setFilterCategoria('todas'); setShowFilterDropdown(false); }} role="option" aria-selected={filterCategoria === 'todas'}>
                   Todas las categorías
                 </div>
                 {categoriasDisponibles.map(cat => (
-                  <div key={cat} className={`dropdown-item ${filterCategoria === cat ? 'active' : ''}`} onClick={() => { setFilterCategoria(cat); setShowFilterDropdown(false); }}>
+                  <div key={cat} className={`dropdown-item ${filterCategoria === cat ? 'active' : ''}`} onClick={() => { setFilterCategoria(cat); setShowFilterDropdown(false); }} role="option" aria-selected={filterCategoria === cat}>
                     {cat}
                   </div>
                 ))}
@@ -522,7 +546,7 @@ export default function Obras() {
           </div>
         </div>
 
-        <div className="table-section">
+        <section className="table-section">
           <div className="table-header">
             <h3>Catálogo de Obras</h3>
             <span className="count">{filteredObras.length} obras</span>
@@ -531,11 +555,11 @@ export default function Obras() {
             <table className="libros-table">
               <thead>
                 <tr>
-                  <th>Obra</th>
-                  <th>Información</th>
-                  <th>Ejemplares</th>
-                  <th>Categoría</th>
-                  <th>Acciones</th>
+                  <th scope="col">Obra</th>
+                  <th scope="col">Información</th>
+                  <th scope="col">Ejemplares</th>
+                  <th scope="col">Categoría</th>
+                  <th scope="col">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -570,9 +594,15 @@ export default function Obras() {
                     </td>
                     <td>
                       <div className="actions">
-                        <button className="action-btn view" onClick={() => abrirDetalle(obra)} title="Ver detalles / ejemplares"><Eye size={14} /></button>
-                        <button className="action-btn edit" onClick={() => handleEditClick(obra)} title="Editar obra"><Edit size={14} /></button>
-                        <button className="action-btn delete" onClick={() => handleEliminar(obra.id)} title="Dar de baja"><Trash2 size={14} /></button>
+                        <button className="action-btn view" onClick={() => abrirDetalle(obra)} title="Ver detalles / ejemplares" aria-label={`Ver detalles y ejemplares de ${obra.titulo}`}>
+                          <Eye size={14} />
+                        </button>
+                        <button className="action-btn edit" onClick={() => handleEditClick(obra)} title="Editar obra" aria-label={`Editar obra ${obra.titulo}`}>
+                          <Edit size={14} />
+                        </button>
+                        <button className="action-btn delete" onClick={() => handleEliminar(obra.id)} title="Dar de baja" aria-label={`Dar de baja obra ${obra.titulo}`}>
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -580,15 +610,21 @@ export default function Obras() {
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
 
-        {/* Modal de detalle: obra + tomos + ejemplares */}
+        {/* Modal de detalle */}
         {showDetails && selectedObra && (
-          <div className="modal-overlay" onClick={() => setShowDetails(false)}>
+          <div 
+            className="modal-overlay" 
+            onClick={() => setShowDetails(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title-detalle"
+          >
             <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '640px' }}>
               <div className="modal-header">
-                <h3>{selectedObra.titulo}</h3>
-                <button className="close-button" onClick={() => setShowDetails(false)}>×</button>
+                <h3 id="modal-title-detalle">{selectedObra.titulo}</h3>
+                <button className="close-button" onClick={() => setShowDetails(false)} aria-label="Cerrar ventana de detalles">×</button>
               </div>
               <div className="modal-body">
                 <div className="detail-row"><span className="label">ISBN:</span><span className="value">{selectedObra.isbn}</span></div>
@@ -600,17 +636,18 @@ export default function Obras() {
                 <div style={{ marginTop: '1.25rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <h4 style={{ margin: 0 }}>Tomos y ejemplares</h4>
-                    <button type="button" className="add-autor-btn" onClick={() => setShowTomoForm(!showTomoForm)}><Plus size={14} /> Agregar tomo</button>
+                    <button type="button" className="add-autor-btn" onClick={() => setShowTomoForm(!showTomoForm)} aria-expanded={showTomoForm}><Plus size={14} /> Agregar tomo</button>
                   </div>
 
                   {showTomoForm && (
                     <form className="add-ejemplar-form" onSubmit={handleAgregarTomo} style={{ marginBottom: '0.75rem' }}>
                       <input
-                        type="text" placeholder='Número/nombre del tomo (ej: "Tomo 2", "Volumen II")'
+                        type="text" placeholder='Número/nombre del tomo (ej: "Tomo 2")'
                         value={nuevoTomoNumero}
                         onChange={e => setNuevoTomoNumero(e.target.value)}
                         autoFocus
                         required
+                        aria-label="Número o nombre del nuevo tomo"
                       />
                       <button type="submit" className="submit-button" style={{ padding: '0.5rem 1rem' }}><Plus size={14} /> Crear tomo</button>
                     </form>
@@ -631,9 +668,9 @@ export default function Obras() {
                           <span style={{ display: 'flex', gap: '0.4rem' }}>
                             <select
                               className="ejemplar-estado-select"
-                              value={ej.tipoUbicacion || ej.tipoubication || ej.tipoubicacion || 'deposito'}
+                              value={ej.tipoUbicacion || 'deposito'}
                               onChange={(e) => handleCambiarTipoUbicacion(ej.id, e.target.value)}
-                              title="Depósito (se presta) o Sala (solo consulta en el lugar)"
+                              aria-label={`Tipo de ubicación del ejemplar ${ej.numeroInventario}`}
                             >
                               <option value="deposito">Depósito</option>
                               <option value="sala">Sala</option>
@@ -643,6 +680,7 @@ export default function Obras() {
                               value={ej.estado}
                               onChange={(e) => handleCambiarEstadoEjemplar(ej.id, e.target.value)}
                               style={{ borderColor: getEstadoColor(ej.estado) }}
+                              aria-label={`Estado del ejemplar ${ej.numeroInventario}`}
                             >
                               <option value="disponible">Disponible</option>
                               <option value="prestado">Prestado</option>
@@ -659,7 +697,7 @@ export default function Obras() {
 
                   <form className="add-ejemplar-form" onSubmit={handleAgregarEjemplar}>
                     {selectedObra.tomos && selectedObra.tomos.length > 1 && (
-                      <select value={nuevoEjemplar.tomoId} onChange={e => setNuevoEjemplar(prev => ({ ...prev, tomoId: e.target.value }))}>
+                      <select value={nuevoEjemplar.tomoId} onChange={e => setNuevoEjemplar(prev => ({ ...prev, tomoId: e.target.value }))} aria-label="Seleccionar tomo">
                         {selectedObra.tomos.map(t => <option key={t.id} value={t.id}>{t.numero}</option>)}
                       </select>
                     )}
@@ -668,16 +706,18 @@ export default function Obras() {
                       value={nuevoEjemplar.numeroInventario}
                       onChange={e => setNuevoEjemplar(prev => ({ ...prev, numeroInventario: e.target.value }))}
                       required
+                      aria-label="Número de inventario manual"
                     />
                     <input
                       type="text" placeholder="Ubicación (opcional)"
                       value={nuevoEjemplar.ubicacion}
                       onChange={e => setNuevoEjemplar(prev => ({ ...prev, ubicacion: e.target.value }))}
+                      aria-label="Ubicación física"
                     />
                     <select
                       value={nuevoEjemplar.tipoUbicacion}
                       onChange={e => setNuevoEjemplar(prev => ({ ...prev, tipoUbicacion: e.target.value }))}
-                      title="Depósito (se presta) o Sala (solo consulta en el lugar)"
+                      aria-label="Tipo de circulación"
                     >
                       <option value="deposito">Depósito</option>
                       <option value="sala">Sala</option>
@@ -692,11 +732,17 @@ export default function Obras() {
 
         {/* Modal de confirmación de baja */}
         {showDeleteConfirm && (
-          <div className="modal-overlay" onClick={cancelDelete}>
+          <div 
+            className="modal-overlay" 
+            onClick={cancelDelete}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-delete-title"
+          >
             <div className="modal-content confirm-modal" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>Confirmar Baja</h3>
-                <button className="close-button" onClick={cancelDelete}>×</button>
+                <h3 id="confirm-delete-title">Confirmar Baja</h3>
+                <button className="close-button" onClick={cancelDelete} aria-label="Cerrar modal">×</button>
               </div>
               <div className="modal-body">
                 <div className="confirm-message">
@@ -715,18 +761,24 @@ export default function Obras() {
 
         {/* Modal de edición */}
         {showEditModal && obraToEdit && (
-          <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+          <div 
+            className="modal-overlay" 
+            onClick={() => setShowEditModal(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-modal-title"
+          >
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>Editar Obra #{obraToEdit.id}</h3>
-                <button className="close-button" onClick={() => setShowEditModal(false)}>×</button>
+                <h3 id="edit-modal-title">Editar Obra #{obraToEdit.id}</h3>
+                <button className="close-button" onClick={() => setShowEditModal(false)} aria-label="Cerrar modal de edición">×</button>
               </div>
               <div className="modal-body">
                 <form onSubmit={handleUpdateSubmit} className="libro-form">
                   <div className="form-row">
                     <div className="form-group">
-                      <label>ISBN (no editable)</label>
-                      <input type="text" value={obraToEdit.isbn} disabled />
+                      <label htmlFor="edit-isbn">ISBN (no editable)</label>
+                      <input type="text" id="edit-isbn" value={obraToEdit.isbn} disabled />
                     </div>
                     <div className="form-group">
                       <label htmlFor="edit-titulo">Título *</label>
@@ -746,13 +798,31 @@ export default function Obras() {
                     <label>Autores / Responsables</label>
                     {editPersonas.map((p, idx) => (
                       <div className="autor-row" key={idx}>
-                        <input type="text" placeholder="Nombre" value={p.nombre} onChange={e => updateEditPersonaRow(idx, 'nombre', e.target.value)} onClick={handleEditInputClick} />
-                        <input type="text" placeholder="Apellido" value={p.apellido} onChange={e => updateEditPersonaRow(idx, 'apellido', e.target.value)} onClick={handleEditInputClick} />
-                        <select value={p.rol} onChange={e => updateEditPersonaRow(idx, 'rol', e.target.value)}>
+                        <input 
+                          type="text" 
+                          placeholder="Nombre" 
+                          aria-label={`Nombre autor ${idx + 1}`}
+                          value={p.nombre} 
+                          onChange={e => updateEditPersonaRow(idx, 'nombre', e.target.value)} 
+                          onClick={handleEditInputClick} 
+                        />
+                        <input 
+                          type="text" 
+                          placeholder="Apellido" 
+                          aria-label={`Apellido autor ${idx + 1}`}
+                          value={p.apellido} 
+                          onChange={e => updateEditPersonaRow(idx, 'apellido', e.target.value)} 
+                          onClick={handleEditInputClick} 
+                        />
+                        <select 
+                          value={p.rol} 
+                          onChange={e => updateEditPersonaRow(idx, 'rol', e.target.value)}
+                          aria-label={`Rol autor ${idx + 1}`}
+                        >
                           {ROLES_PERSONA.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                         </select>
                         {editPersonas.length > 1 && (
-                          <button type="button" className="remove-autor-btn" onClick={() => removeEditPersonaRow(idx)}><X size={14} /></button>
+                          <button type="button" className="remove-autor-btn" onClick={() => removeEditPersonaRow(idx)} aria-label={`Quitar autor ${idx + 1}`}><X size={14} /></button>
                         )}
                       </div>
                     ))}
@@ -805,7 +875,7 @@ export default function Obras() {
             </div>
           </div>
         )}
-      </div>
+      </main>
     </>
   );
 }

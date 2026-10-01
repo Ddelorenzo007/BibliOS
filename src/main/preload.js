@@ -1,11 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// A partir de la migración a PostgreSQL + Express, TODO lo relacionado a
-// datos (obras, socios, préstamos, etc.) dejó de pasar por IPC: ahora vive
-// en frontend/src/services/apiClient.js, que le habla directo al servidor
-// por HTTP. Acá solo queda lo que genuinamente necesita al sistema
-// operativo -- los diálogos nativos -- porque eso sí depende del proceso
-// principal de Electron.
+// Exposición de diálogos nativos del SO
 contextBridge.exposeInMainWorld('nativeDialog', {
     confirm: (options) => ipcRenderer.invoke('dialog:confirm', options),
     message: (options) => ipcRenderer.invoke('dialog:message', options),
@@ -16,4 +11,11 @@ contextBridge.exposeInMainWorld('nativeDialog', {
     openDirectory: (options) => ipcRenderer.invoke('dialog:openDirectory', options),
     save: (options) => ipcRenderer.invoke('dialog:save', options),
     ensureFocus: () => ipcRenderer.invoke('ensure-focused')
+});
+
+// Exposición segura de métodos de autenticación cifrada (safeStorage)
+contextBridge.exposeInMainWorld('authAPI', {
+    saveToken: (token) => ipcRenderer.invoke('auth:saveToken', token),
+    getToken: () => ipcRenderer.invoke('auth:getToken'),
+    removeToken: () => ipcRenderer.invoke('auth:removeToken')
 });

@@ -41,12 +41,26 @@ export default function Socios() {
   const [editFormData, setEditFormData] = useState({});
   const [isBuscandoDNI, setIsBuscandoDNI] = useState(false);
 
-  // Modal de sanción
   const [showSancionModal, setShowSancionModal] = useState(false);
   const [socioASancionar, setSocioASancionar] = useState(null);
   const [sancionForm, setSancionForm] = useState({ motivo: '', fechaFin: '' });
 
   const [formData, setFormData] = useState(FORM_VACIO);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setShowDetails(false);
+        setShowDeleteConfirm(false);
+        setShowEditModal(false);
+        setShowSancionModal(false);
+        setShowForm(false);
+        setShowFilterDropdown(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (sociosRaw && prestamos) {
@@ -85,7 +99,6 @@ export default function Socios() {
   };
   const handleInputClick = (e) => { e.target.focus(); e.target.select(); };
 
-  // Autocompletar por DNI contra el (por ahora simulado) sistema académico
   const handleBuscarPorDNI = async () => {
     if (!formData.dni.trim()) {
       await window.nativeDialog.warning({ message: 'DNI requerido', detail: 'Ingresá el DNI para buscar en el sistema académico.' });
@@ -102,9 +115,9 @@ export default function Socios() {
           tipoSocio: persona.tipoSocio || prev.tipoSocio,
           legajo: persona.legajo || prev.legajo
         }));
-        await window.nativeDialog.message({ message: 'Persona encontrada', detail: 'Se completaron los datos desde el sistema académico. Revisalos antes de guardar.' });
+        await window.nativeDialog.message({ message: 'Persona encontrada', detail: 'Se completaron los datos desde el sistema académico.' });
       } else {
-        await window.nativeDialog.warning({ message: 'No encontrado', detail: 'No se encontró a esa persona en el sistema académico. Completá los datos manualmente.' });
+        await window.nativeDialog.warning({ message: 'No encontrado', detail: 'No se encontró a esa persona en el sistema académico.' });
       }
     } catch (error) {
       console.error('Error al buscar por DNI:', error);
@@ -207,7 +220,6 @@ export default function Socios() {
     }
   };
 
-  // ===== Detalle + historial de sanciones =====
   const abrirDetalle = async (socio) => {
     setSelectedSocio(socio);
     setShowDetails(true);
@@ -234,7 +246,6 @@ export default function Socios() {
     }
   };
 
-  // ===== Aplicar sanción =====
   const abrirSancionModal = (socio) => {
     setSocioASancionar(socio);
     const fechaSugerida = new Date();
@@ -259,7 +270,6 @@ export default function Socios() {
     }
   };
 
-  // Filtrado y búsqueda
   const filteredSocios = socios.filter(socio => {
     const matchesSearch = searchTerm === '' ||
       socio.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -280,25 +290,25 @@ export default function Socios() {
 
   return (
     <>
-      <button className="mobile-menu-toggle" onClick={() => setIsSidebarOpen(true)} aria-label="Abrir menú">
+      <button className="mobile-menu-toggle" onClick={() => setIsSidebarOpen(true)} aria-label="Abrir menú de navegación">
         <Menu size={24} />
       </button>
 
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-      <div className="socios-container">
-        <div className="socios-header">
+      <main className="socios-container">
+        <header className="socios-header">
           <div className="header-content">
             <h1>Gestión de Socios</h1>
             <span className="header-separator">|</span>
             <p>Administrá los socios de la biblioteca, sus datos y estado de membresía</p>
           </div>
-          <button className="add-button" onClick={() => setShowForm(!showForm)}>
+          <button className="add-button" onClick={() => setShowForm(!showForm)} aria-expanded={showForm}>
             <Plus size={18} />
             Nuevo Socio
           </button>
-        </div>
+        </header>
 
-        <div className="stats-grid">
+        <section className="stats-grid" aria-label="Estadísticas de socios">
           <div className="stat-card">
             <div className="stat-icon"><Users size={20} strokeWidth={1.5} /></div>
             <div className="stat-content"><h3>Total Socios</h3><p className="stat-value">{stats.total}</p></div>
@@ -315,11 +325,11 @@ export default function Socios() {
             <div className="stat-icon"><Circle size={20} strokeWidth={1.5} /></div>
             <div className="stat-content"><h3>Inactivos</h3><p className="stat-value">{stats.inactivos}</p></div>
           </div>
-        </div>
+        </section>
 
         {showForm && (
-          <div className="form-section">
-            <h3>Nuevo Socio</h3>
+          <section className="form-section" aria-labelledby="form-socio-title">
+            <h3 id="form-socio-title">Nuevo Socio</h3>
             <form onSubmit={handleSubmit} className="socio-form">
               <div className="form-row">
                 <div className="form-group">
@@ -372,7 +382,7 @@ export default function Socios() {
                   {isBuscandoDNI ? 'Buscando...' : 'Buscar por DNI'}
                 </button>
                 <p className="auto-search-hint">
-                  Autocompleta nombre, apellido, legajo y tipo desde el sistema académico (por ahora, datos simulados — la integración real todavía no está definida por TIC).
+                  Autocompleta nombre, apellido, legajo y tipo desde el sistema académico.
                 </p>
               </div>
 
@@ -381,36 +391,43 @@ export default function Socios() {
                 <button type="button" className="cancel-button" onClick={() => setShowForm(false)}>Cancelar</button>
               </div>
             </form>
-          </div>
+          </section>
         )}
 
         <div className="filters-section">
           <div className="search-box">
             <Search size={16} />
-            <input type="text" placeholder="Buscar por nombre, apellido, DNI, legajo o email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <input type="text" placeholder="Buscar por nombre, DNI, legajo..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} aria-label="Buscar socios" />
           </div>
           <div className="filter-box custom-dropdown">
             <Filter size={16} />
-            <div className="dropdown-trigger" onClick={() => setShowFilterDropdown(!showFilterDropdown)}>
+            <button 
+              type="button" 
+              className="dropdown-trigger" 
+              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+              aria-expanded={showFilterDropdown}
+              aria-haspopup="listbox"
+              aria-label="Filtrar por estado del socio"
+            >
               {filterStatus === 'todos' && 'Todos los estados'}
               {filterStatus === 'activo' && 'Activos'}
               {filterStatus === 'sancionado' && 'Sancionados'}
               {filterStatus === 'inactivo' && 'Inactivos'}
-              <span className="dropdown-arrow">▼</span>
-            </div>
+              <span className="dropdown-arrow" aria-hidden="true">▼</span>
+            </button>
             {showFilterDropdown && (
-              <div className="dropdown-menu">
-                <div className={`dropdown-item ${filterStatus === 'todos' ? 'active' : ''}`} onClick={() => { setFilterStatus('todos'); setShowFilterDropdown(false); }}>Todos los estados</div>
-                <div className={`dropdown-item ${filterStatus === 'activo' ? 'active' : ''}`} onClick={() => { setFilterStatus('activo'); setShowFilterDropdown(false); }}>Activos</div>
-                <div className={`dropdown-item ${filterStatus === 'sancionado' ? 'active' : ''}`} onClick={() => { setFilterStatus('sancionado'); setShowFilterDropdown(false); }}>Sancionados</div>
-                <div className={`dropdown-item ${filterStatus === 'inactivo' ? 'active' : ''}`} onClick={() => { setFilterStatus('inactivo'); setShowFilterDropdown(false); }}>Inactivos</div>
+              <div className="dropdown-menu" role="listbox">
+                <div className={`dropdown-item ${filterStatus === 'todos' ? 'active' : ''}`} onClick={() => { setFilterStatus('todos'); setShowFilterDropdown(false); }} role="option">Todos los estados</div>
+                <div className={`dropdown-item ${filterStatus === 'activo' ? 'active' : ''}`} onClick={() => { setFilterStatus('activo'); setShowFilterDropdown(false); }} role="option">Activos</div>
+                <div className={`dropdown-item ${filterStatus === 'sancionado' ? 'active' : ''}`} onClick={() => { setFilterStatus('sancionado'); setShowFilterDropdown(false); }} role="option">Sancionados</div>
+                <div className={`dropdown-item ${filterStatus === 'inactivo' ? 'active' : ''}`} onClick={() => { setFilterStatus('inactivo'); setShowFilterDropdown(false); }} role="option">Inactivos</div>
               </div>
             )}
             {showFilterDropdown && <div className="dropdown-backdrop" onClick={() => setShowFilterDropdown(false)} />}
           </div>
         </div>
 
-        <div className="table-section">
+        <section className="table-section">
           <div className="table-header">
             <h3>Lista de Socios</h3>
             <span className="count">{filteredSocios.length} socios</span>
@@ -419,14 +436,14 @@ export default function Socios() {
             <table className="socios-table">
               <thead>
                 <tr>
-                  <th>Nº</th>
-                  <th>Socio</th>
-                  <th>DNI / Legajo</th>
-                  <th>Tipo</th>
-                  <th>Contacto</th>
-                  <th>Estado</th>
-                  <th>Préstamos</th>
-                  <th>Acciones</th>
+                  <th scope="col">Nº</th>
+                  <th scope="col">Socio</th>
+                  <th scope="col">DNI / Legajo</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Contacto</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Préstamos</th>
+                  <th scope="col">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -467,15 +484,15 @@ export default function Socios() {
                     </td>
                     <td>
                       <div className="actions">
-                        <button className="action-btn view" onClick={() => abrirDetalle(socio)} title="Ver detalles"><Eye size={14} /></button>
-                        <button className="action-btn edit" onClick={() => handleEditClick(socio)} title="Editar socio"><Edit size={14} /></button>
+                        <button className="action-btn view" onClick={() => abrirDetalle(socio)} title="Ver detalles" aria-label={`Ver detalles del socio ${socio.nombre} ${socio.apellido}`}><Eye size={14} /></button>
+                        <button className="action-btn edit" onClick={() => handleEditClick(socio)} title="Editar socio" aria-label={`Editar socio ${socio.nombre} ${socio.apellido}`}><Edit size={14} /></button>
                         {socio.estado !== 'sancionado' && (
-                          <button className="action-btn sancionar" onClick={() => abrirSancionModal(socio)} title="Aplicar sanción"><ShieldAlert size={14} /></button>
+                          <button className="action-btn sancionar" onClick={() => abrirSancionModal(socio)} title="Aplicar sanción" aria-label={`Aplicar sanción a ${socio.nombre}`}><ShieldAlert size={14} /></button>
                         )}
                         {socio.estado === 'inactivo' ? (
-                          <button className="action-btn reactivar" onClick={() => handleReactivar(socio.id)} title="Reactivar socio"><UserCheck size={14} /></button>
+                          <button className="action-btn reactivar" onClick={() => handleReactivar(socio.id)} title="Reactivar socio" aria-label={`Reactivar socio ${socio.nombre}`}><UserCheck size={14} /></button>
                         ) : (
-                          <button className="action-btn delete" onClick={() => handleEliminar(socio.id)} title="Dar de baja"><Trash2 size={14} /></button>
+                          <button className="action-btn delete" onClick={() => handleEliminar(socio.id)} title="Dar de baja" aria-label={`Dar de baja a ${socio.nombre}`}><Trash2 size={14} /></button>
                         )}
                       </div>
                     </td>
@@ -484,15 +501,21 @@ export default function Socios() {
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
 
-        {/* Modal de detalles + historial de sanciones */}
+        {/* Modal de detalles */}
         {showDetails && selectedSocio && (
-          <div className="modal-overlay" onClick={() => setShowDetails(false)}>
+          <div 
+            className="modal-overlay" 
+            onClick={() => setShowDetails(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-socio-title"
+          >
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>Detalles del Socio #{selectedSocio.numeroEnBiblioteca}</h3>
-                <button className="close-button" onClick={() => setShowDetails(false)}>×</button>
+                <h3 id="modal-socio-title">Detalles del Socio #{selectedSocio.numeroEnBiblioteca}</h3>
+                <button className="close-button" onClick={() => setShowDetails(false)} aria-label="Cerrar modal">×</button>
               </div>
               <div className="modal-body">
                 <div className="detail-row"><span className="label">Nombre:</span><span className="value">{selectedSocio.nombre} {selectedSocio.apellido}</span></div>
@@ -539,11 +562,17 @@ export default function Socios() {
 
         {/* Modal de aplicar sanción */}
         {showSancionModal && socioASancionar && (
-          <div className="modal-overlay" onClick={() => setShowSancionModal(false)}>
+          <div 
+            className="modal-overlay" 
+            onClick={() => setShowSancionModal(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-sancion-title"
+          >
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>Aplicar Sanción a {socioASancionar.nombre} {socioASancionar.apellido}</h3>
-                <button className="close-button" onClick={() => setShowSancionModal(false)}>×</button>
+                <h3 id="modal-sancion-title">Aplicar Sanción a {socioASancionar.nombre} {socioASancionar.apellido}</h3>
+                <button className="close-button" onClick={() => setShowSancionModal(false)} aria-label="Cerrar modal">×</button>
               </div>
               <div className="modal-body">
                 <form onSubmit={handleAplicarSancion} className="socio-form">
@@ -571,11 +600,17 @@ export default function Socios() {
 
         {/* Modal de confirmación de baja */}
         {showDeleteConfirm && (
-          <div className="modal-overlay" onClick={cancelDelete}>
+          <div 
+            className="modal-overlay" 
+            onClick={cancelDelete}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-delete-socio-title"
+          >
             <div className="modal-content confirm-modal" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>Confirmar Baja</h3>
-                <button className="close-button" onClick={cancelDelete}>×</button>
+                <h3 id="modal-delete-socio-title">Confirmar Baja</h3>
+                <button className="close-button" onClick={cancelDelete} aria-label="Cerrar modal">×</button>
               </div>
               <div className="modal-body">
                 <div className="confirm-message">
@@ -594,11 +629,17 @@ export default function Socios() {
 
         {/* Modal de edición */}
         {showEditModal && socioToEdit && (
-          <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+          <div 
+            className="modal-overlay" 
+            onClick={() => setShowEditModal(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-edit-socio-title"
+          >
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>Editar Socio #{socioToEdit.numeroEnBiblioteca}</h3>
-                <button className="close-button" onClick={() => setShowEditModal(false)}>×</button>
+                <h3 id="modal-edit-socio-title">Editar Socio #{socioToEdit.numeroEnBiblioteca}</h3>
+                <button className="close-button" onClick={() => setShowEditModal(false)} aria-label="Cerrar modal">×</button>
               </div>
               <div className="modal-body">
                 <form onSubmit={handleUpdateSubmit} className="socio-form">
@@ -655,7 +696,7 @@ export default function Socios() {
             </div>
           </div>
         )}
-      </div>
+      </main>
     </>
   );
 }

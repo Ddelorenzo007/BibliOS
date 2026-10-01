@@ -11,8 +11,7 @@ import { useData } from './context/DataContext.jsx';
 export default function Prestamos() {
   const { prestamos: prestamosRaw, obras: obrasRaw, socios: sociosRaw, reservas: reservasRaw, refreshPrestamos, refreshReservas } = useData();
 
-  const [vista, setVista] = useState('prestamos'); // 'prestamos' | 'reservas'
-
+  const [vista, setVista] = useState('prestamos');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -22,19 +21,16 @@ export default function Prestamos() {
   const [selectedPrestamo, setSelectedPrestamo] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
 
-  // Buscador de ejemplares disponibles
   const [ejemplarSearch, setEjemplarSearch] = useState('');
   const [ejemplaresEncontrados, setEjemplaresEncontrados] = useState([]);
   const [showEjemplarResults, setShowEjemplarResults] = useState(false);
   const [selectedEjemplar, setSelectedEjemplar] = useState(null);
 
-  // Buscador de socios
   const [socioSearch, setSocioSearch] = useState('');
   const [showSocioResults, setShowSocioResults] = useState(false);
   const [selectedSocioForm, setSelectedSocioForm] = useState(null);
   const [observaciones, setObservaciones] = useState('');
 
-  // ===== Reservas =====
   const [showReservaForm, setShowReservaForm] = useState(false);
   const [obraSearch, setObraSearch] = useState('');
   const [showObraResults, setShowObraResults] = useState(false);
@@ -44,11 +40,21 @@ export default function Prestamos() {
   const [selectedSocioReserva, setSelectedSocioReserva] = useState(null);
 
   const socios = (sociosRaw || []).filter(s => s.estado === 'activo');
-
-  // El ejemplar elegido es de Sala: hay que justificar el préstamo (excepción)
   const esEjemplarDeSala = selectedEjemplar?.tipoUbicacion === 'sala';
 
-  // Búsqueda en vivo de ejemplares disponibles (no vive en el contexto global)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setShowDetails(false);
+        setShowForm(false);
+        setShowReservaForm(false);
+        setShowFilterDropdown(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   useEffect(() => {
     const buscar = async () => {
       if (!ejemplarSearch.trim() || !window.electronAPI) { setEjemplaresEncontrados([]); return; }
@@ -132,8 +138,6 @@ export default function Prestamos() {
       return;
     }
     
-    // Mismo chequeo que hace el backend, pero adelantado acá para no
-    // hacer un viaje al servidor si ya sabemos que lo va a rechazar.
     if (esEjemplarDeSala && !observaciones.trim()) {
       await window.nativeDialog.warning({
         message: 'Este ejemplar es de Sala',
@@ -185,7 +189,6 @@ export default function Prestamos() {
     }
   };
 
-  // ===== Reservas =====
   const filteredObrasReserva = (obrasRaw || []).filter(o =>
     (o.ejemplaresDisponibles || 0) === 0 &&
     `${o.titulo} ${o.isbn}`.toLowerCase().includes(obraSearch.toLowerCase())
@@ -244,7 +247,6 @@ export default function Prestamos() {
     }
   };
 
-  // Filtrado y búsqueda de préstamos
   const filteredPrestamos = (prestamosRaw || []).filter(prestamo => {
     const matchesSearch = searchTerm === '' ||
       (prestamo.obraTitulo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -264,27 +266,26 @@ export default function Prestamos() {
 
   return (
     <>
-      <button className="mobile-menu-toggle" onClick={() => setIsSidebarOpen(true)} aria-label="Abrir menú">
+      <button className="mobile-menu-toggle" onClick={() => setIsSidebarOpen(true)} aria-label="Abrir menú de navegación">
         <Menu size={24} />
       </button>
 
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-      <div className="prestamos-container">
-        <div className="prestamos-header">
+      <main className="prestamos-container">
+        <header className="prestamos-header">
           <div className="header-content">
             <h1>Gestión de Préstamos</h1>
             <span className="header-separator">|</span>
             <p>Administrá préstamos, renovaciones y reservas de ejemplares</p>
           </div>
           {vista === 'prestamos' ? (
-            <button className="add-button" onClick={() => setShowForm(!showForm)}><Plus size={18} />Nuevo Préstamo</button>
+            <button className="add-button" onClick={() => setShowForm(!showForm)} aria-expanded={showForm}><Plus size={18} />Nuevo Préstamo</button>
           ) : (
-            <button className="add-button" onClick={() => setShowReservaForm(!showReservaForm)}><Plus size={18} />Nueva Reserva</button>
+            <button className="add-button" onClick={() => setShowReservaForm(!showReservaForm)} aria-expanded={showReservaForm}><Plus size={18} />Nueva Reserva</button>
           )}
-        </div>
+        </header>
 
-        {/* Toggle Préstamos / Reservas */}
-        <div className="vista-toggle">
+        <nav className="vista-toggle" aria-label="Cambiar vista entre préstamos y reservas">
           <button className={vista === 'prestamos' ? 'active' : ''} onClick={() => setVista('prestamos')}>
             <BookOpen size={16} /> Préstamos
           </button>
@@ -293,11 +294,11 @@ export default function Prestamos() {
               <span className="badge-count">{(reservasRaw || []).filter(r => r.estado === 'pendiente').length}</span>
             )}
           </button>
-        </div>
+        </nav>
 
         {vista === 'prestamos' && (
           <>
-            <div className="stats-grid">
+            <section className="stats-grid" aria-label="Estadísticas de préstamos">
               <div className="stat-card">
                 <div className="stat-icon"><BookOpen size={20} strokeWidth={1.5} /></div>
                 <div className="stat-content"><h3>Total Préstamos</h3><p className="stat-value">{stats.total}</p></div>
@@ -314,18 +315,19 @@ export default function Prestamos() {
                 <div className="stat-icon"><CheckCircle2 size={20} strokeWidth={1.5} /></div>
                 <div className="stat-content"><h3>Devueltos</h3><p className="stat-value">{stats.devueltos}</p></div>
               </div>
-            </div>
+            </section>
 
             {showForm && (
-              <div className="form-section">
-                <h3>Nuevo Préstamo</h3>
+              <section className="form-section" aria-labelledby="form-prestamo-title">
+                <h3 id="form-prestamo-title">Nuevo Préstamo</h3>
                 <p style={{ fontSize: '0.85rem', opacity: 0.7, marginTop: '-0.5rem' }}>La fecha de devolución se calcula automáticamente a 14 días desde hoy.</p>
                 <form onSubmit={handleSubmit} className="prestamo-form">
                   <div className="form-row">
                     <div className="form-group searchable-dropdown">
-                      <label>Ejemplar <span style={{ color: "#ef4444" }}>*</span></label>
+                      <label htmlFor="ejemplar-search">Ejemplar <span style={{ color: "#ef4444" }}>*</span></label>
                       <div className="search-wrapper">
                         <input
+                          id="ejemplar-search"
                           type="text" placeholder="Buscar por título, ISBN o inventario..."
                           value={ejemplarSearch}
                           onChange={(e) => { setEjemplarSearch(e.target.value); setShowEjemplarResults(true); setSelectedEjemplar(null); }}
@@ -333,9 +335,9 @@ export default function Prestamos() {
                           required
                         />
                         {showEjemplarResults && ejemplaresEncontrados.length > 0 && (
-                          <div className="search-results">
+                          <div className="search-results" role="listbox">
                             {ejemplaresEncontrados.map(ej => (
-                              <div key={ej.id} className="search-result-item" onClick={() => selectEjemplar(ej)}>
+                              <div key={ej.id} className="search-result-item" onClick={() => selectEjemplar(ej)} role="option">
                                 <Book size={16} />
                                 <div>
                                   <strong>
@@ -351,9 +353,10 @@ export default function Prestamos() {
                       </div>
                     </div>
                     <div className="form-group searchable-dropdown">
-                      <label>Socio <span style={{ color: "#ef4444" }}>*</span></label>
+                      <label htmlFor="socio-search">Socio <span style={{ color: "#ef4444" }}>*</span></label>
                       <div className="search-wrapper">
                         <input
+                          id="socio-search"
                           type="text" placeholder="Buscar por nombre o DNI..."
                           value={socioSearch}
                           onChange={(e) => { setSocioSearch(e.target.value); setShowSocioResults(true); setSelectedSocioForm(null); }}
@@ -361,9 +364,9 @@ export default function Prestamos() {
                           required
                         />
                         {showSocioResults && filteredSociosForm.length > 0 && (
-                          <div className="search-results">
+                          <div className="search-results" role="listbox">
                             {filteredSociosForm.map(socio => (
-                              <div key={socio.id} className="search-result-item" onClick={() => selectSocioForm(socio)}>
+                              <div key={socio.id} className="search-result-item" onClick={() => selectSocioForm(socio)} role="option">
                                 <User size={16} />
                                 <span>{socio.nombre} {socio.apellido} — DNI {socio.dni}</span>
                               </div>
@@ -375,9 +378,9 @@ export default function Prestamos() {
                   </div>
 
                   {esEjemplarDeSala && (
-                    <div className="alerta-sala">
+                    <div className="alerta-sala" role="alert">
                       <AlertTriangle size={16} />
-                      <span>Este ejemplar es de <strong>Sala</strong> (no circula normalmente). Para prestarlo como excepción, es obligatorio indicar el motivo abajo.</span>
+                      <span>Este ejemplar es de <strong>Sala</strong>. Para prestarlo como excepción, es obligatorio indicar el motivo abajo.</span>
                     </div>
                   )}
 
@@ -387,7 +390,7 @@ export default function Prestamos() {
                     </label>
                     <textarea
                       id="observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)}
-                      placeholder={esEjemplarDeSala ? 'Ej: préstamo autorizado al docente para preparar una clase' : 'Notas adicionales sobre el préstamo...'}
+                      placeholder={esEjemplarDeSala ? 'Ej: préstamo autorizado al docente para preparar una clase' : 'Notas adicionales...'}
                       rows="3"
                       required={esEjemplarDeSala}
                     />
@@ -397,27 +400,34 @@ export default function Prestamos() {
                     <button type="button" className="cancel-button" onClick={() => setShowForm(false)}>Cancelar</button>
                   </div>
                 </form>
-              </div>
+              </section>
             )}
 
             <div className="filters-section">
               <div className="search-box">
                 <Search size={18} />
-                <input type="text" placeholder="Buscar por obra o socio..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                <input type="text" placeholder="Buscar por obra o socio..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} aria-label="Buscar préstamos por obra o socio" />
               </div>
               <div className="filter-box custom-dropdown">
                 <Filter size={18} />
-                <div className="dropdown-trigger" onClick={() => setShowFilterDropdown(!showFilterDropdown)}>
+                <button
+                  type="button"
+                  className="dropdown-trigger" 
+                  onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                  aria-expanded={showFilterDropdown}
+                  aria-haspopup="listbox"
+                  aria-label="Filtrar préstamos por estado"
+                >
                   {filterStatus === 'todos' && 'Todos los estados'}
                   {filterStatus === 'activo' && 'Activos'}
                   {filterStatus === 'vencido' && 'Vencidos'}
                   {filterStatus === 'devuelto' && 'Devueltos'}
-                  <span className="dropdown-arrow">▼</span>
-                </div>
+                  <span className="dropdown-arrow" aria-hidden="true">▼</span>
+                </button>
                 {showFilterDropdown && (
-                  <div className="dropdown-menu">
+                  <div className="dropdown-menu" role="listbox">
                     {['todos', 'activo', 'vencido', 'devuelto'].map(f => (
-                      <div key={f} className={`dropdown-item ${filterStatus === f ? 'active' : ''}`} onClick={() => { setFilterStatus(f); setShowFilterDropdown(false); }}>
+                      <div key={f} className={`dropdown-item ${filterStatus === f ? 'active' : ''}`} onClick={() => { setFilterStatus(f); setShowFilterDropdown(false); }} role="option">
                         {f === 'todos' ? 'Todos los estados' : f.charAt(0).toUpperCase() + f.slice(1) + (f !== 'activo' ? '' : 's')}
                       </div>
                     ))}
@@ -427,7 +437,7 @@ export default function Prestamos() {
               </div>
             </div>
 
-            <div className="table-section">
+            <section className="table-section">
               <div className="table-header">
                 <h3>Lista de Préstamos</h3>
                 <span className="count">{filteredPrestamos.length} préstamos</span>
@@ -436,7 +446,13 @@ export default function Prestamos() {
                 <table className="prestamos-table">
                   <thead>
                     <tr>
-                      <th>ID</th><th>Obra / Ejemplar</th><th>Socio</th><th>Préstamo</th><th>Vence</th><th>Estado</th><th>Acciones</th>
+                      <th scope="col">ID</th>
+                      <th scope="col">Obra / Ejemplar</th>
+                      <th scope="col">Socio</th>
+                      <th scope="col">Préstamo</th>
+                      <th scope="col">Vence</th>
+                      <th scope="col">Estado</th>
+                      <th scope="col">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -464,12 +480,12 @@ export default function Prestamos() {
                         </td>
                         <td>
                           <div className="actions">
-                            <button className="action-btn view" onClick={() => { setSelectedPrestamo(prestamo); setShowDetails(true); }} title="Ver detalles"><Eye size={14} /></button>
+                            <button className="action-btn view" onClick={() => { setSelectedPrestamo(prestamo); setShowDetails(true); }} title="Ver detalles" aria-label={`Ver detalles del préstamo #${prestamo.id}`}><Eye size={14} /></button>
                             {prestamo.estado === 'activo' && (
-                              <button className="action-btn renovar" onClick={() => handleRenovar(prestamo.id)} title="Renovar 7 días"><RefreshCw size={14} /></button>
+                              <button className="action-btn renovar" onClick={() => handleRenovar(prestamo.id)} title="Renovar 7 días" aria-label={`Renovar préstamo #${prestamo.id}`}><RefreshCw size={14} /></button>
                             )}
                             {(prestamo.estado === 'activo' || prestamo.estado === 'vencido') && (
-                              <button className="action-btn complete" onClick={() => handleDevolver(prestamo.id)} title="Marcar como devuelto"><CheckCircle size={14} /></button>
+                              <button className="action-btn complete" onClick={() => handleDevolver(prestamo.id)} title="Marcar como devuelto" aria-label={`Marcar devolución del préstamo #${prestamo.id}`}><CheckCircle size={14} /></button>
                             )}
                           </div>
                         </td>
@@ -478,22 +494,22 @@ export default function Prestamos() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </section>
           </>
         )}
 
         {vista === 'reservas' && (
           <>
             {showReservaForm && (
-              <div className="form-section">
-                <h3>Nueva Reserva</h3>
-                <p style={{ fontSize: '0.85rem', opacity: 0.7, marginTop: '-0.5rem' }}>Solo se puede reservar una obra sin ejemplares disponibles en este momento — si hay stock, registrá un préstamo directo.</p>
+              <section className="form-section" aria-labelledby="form-reserva-title">
+                <h3 id="form-reserva-title">Nueva Reserva</h3>
                 <form onSubmit={handleSubmitReserva} className="prestamo-form">
                   <div className="form-row">
                     <div className="form-group searchable-dropdown">
-                      <label>Obra <span style={{ color: "#ef4444" }}>*</span></label>
+                      <label htmlFor="obra-reserva-search">Obra <span style={{ color: "#ef4444" }}>*</span></label>
                       <div className="search-wrapper">
                         <input
+                          id="obra-reserva-search"
                           type="text" placeholder="Buscar obra sin stock..."
                           value={obraSearch}
                           onChange={(e) => { setObraSearch(e.target.value); setShowObraResults(true); setSelectedObraReserva(null); }}
@@ -501,9 +517,9 @@ export default function Prestamos() {
                           required
                         />
                         {showObraResults && filteredObrasReserva.length > 0 && (
-                          <div className="search-results">
+                          <div className="search-results" role="listbox">
                             {filteredObrasReserva.map(o => (
-                              <div key={o.id} className="search-result-item" onClick={() => selectObraReserva(o)}>
+                              <div key={o.id} className="search-result-item" onClick={() => selectObraReserva(o)} role="option">
                                 <Book size={16} /><div><strong>{o.titulo}</strong><span>{o.isbn}</span></div>
                               </div>
                             ))}
@@ -512,9 +528,10 @@ export default function Prestamos() {
                       </div>
                     </div>
                     <div className="form-group searchable-dropdown">
-                      <label>Socio <span style={{ color: "#ef4444" }}>*</span></label>
+                      <label htmlFor="socio-reserva-search">Socio <span style={{ color: "#ef4444" }}>*</span></label>
                       <div className="search-wrapper">
                         <input
+                          id="socio-reserva-search"
                           type="text" placeholder="Buscar por nombre o DNI..."
                           value={socioReservaSearch}
                           onChange={(e) => { setSocioReservaSearch(e.target.value); setShowSocioReservaResults(true); setSelectedSocioReserva(null); }}
@@ -522,9 +539,9 @@ export default function Prestamos() {
                           required
                         />
                         {showSocioReservaResults && filteredSociosReserva.length > 0 && (
-                          <div className="search-results">
+                          <div className="search-results" role="listbox">
                             {filteredSociosReserva.map(socio => (
-                              <div key={socio.id} className="search-result-item" onClick={() => selectSocioReserva(socio)}>
+                              <div key={socio.id} className="search-result-item" onClick={() => selectSocioReserva(socio)} role="option">
                                 <User size={16} /><span>{socio.nombre} {socio.apellido} — DNI {socio.dni}</span>
                               </div>
                             ))}
@@ -538,9 +555,9 @@ export default function Prestamos() {
                     <button type="button" className="cancel-button" onClick={() => setShowReservaForm(false)}>Cancelar</button>
                   </div>
                 </form>
-              </div>
+              </section>
             )}
-            <div className="table-section">
+            <section className="table-section">
               <div className="table-header">
                 <h3>Reservas</h3>
                 <span className="count">{(reservasRaw || []).length} reservas</span>
@@ -548,7 +565,14 @@ export default function Prestamos() {
               <div className="table-container">
                 <table className="prestamos-table">
                   <thead>
-                    <tr><th>ID</th><th>Obra</th><th>Socio</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr>
+                    <tr>
+                      <th scope="col">ID</th>
+                      <th scope="col">Obra</th>
+                      <th scope="col">Socio</th>
+                      <th scope="col">Fecha</th>
+                      <th scope="col">Estado</th>
+                      <th scope="col">Acciones</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {(reservasRaw || []).map(reserva => (
@@ -566,10 +590,10 @@ export default function Prestamos() {
                         <td>
                           <div className="actions">
                             {reserva.estado === 'pendiente' && reserva.ejemplarAsignadoId && (
-                              <button className="action-btn complete" onClick={() => handleEntregarReserva(reserva)} title="Entregar ejemplar reservado"><ArrowRight size={14} /></button>
+                              <button className="action-btn complete" onClick={() => handleEntregarReserva(reserva)} title="Entregar ejemplar reservado" aria-label={`Entregar reserva #${reserva.id}`}><ArrowRight size={14} /></button>
                             )}
                             {reserva.estado === 'pendiente' && (
-                              <button className="action-btn delete" onClick={() => handleCancelarReserva(reserva.id)} title="Cancelar reserva"><X size={14} /></button>
+                              <button className="action-btn delete" onClick={() => handleCancelarReserva(reserva.id)} title="Cancelar reserva" aria-label={`Cancelar reserva #${reserva.id}`}><X size={14} /></button>
                             )}
                           </div>
                         </td>
@@ -578,17 +602,23 @@ export default function Prestamos() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </section>
           </>
         )}
 
-        {/* Modal de detalles de préstamo */}
+        {/* Modal de detalles */}
         {showDetails && selectedPrestamo && (
-          <div className="modal-overlay" onClick={() => setShowDetails(false)}>
+          <div 
+            className="modal-overlay" 
+            onClick={() => setShowDetails(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-details-title"
+          >
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>Detalles del Préstamo #{selectedPrestamo.id}</h3>
-                <button className="close-button" onClick={() => setShowDetails(false)}>×</button>
+                <h3 id="modal-details-title">Detalles del Préstamo #{selectedPrestamo.id}</h3>
+                <button className="close-button" onClick={() => setShowDetails(false)} aria-label="Cerrar modal">×</button>
               </div>
               <div className="modal-body">
                 <div className="detail-row"><span className="label">Obra:</span><span className="value">{selectedPrestamo.obraTitulo || '[Ejemplar eliminado]'}</span></div>
@@ -610,7 +640,7 @@ export default function Prestamos() {
             </div>
           </div>
         )}
-      </div>
+      </main>
     </>
   );
 }

@@ -1,15 +1,5 @@
 import { useState, useEffect } from 'react';
 
-// Hook de autenticación. Antes hablaba con SQLite vía IPC en el mismo
-// proceso; ahora window.electronAPI.login() habla por HTTP con el
-// servidor Express (ver frontend/src/services/apiClient.js), que además
-// devuelve un JWT. Ese token lo administra apiClient.js solo (se guarda al
-// loguear, se manda en cada request); acá lo único nuevo respecto de la
-// versión anterior es llamar a electronAPI.logout() para borrarlo al
-// cerrar sesión.
-
-const SESSION_KEY = 'biblios_session';
-
 export const useAuth = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -19,15 +9,18 @@ export const useAuth = () => {
     loadAuthState();
   }, []);
 
-  const loadAuthState = () => {
+  const loadAuthState = async () => {
     try {
-      const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
-      if (session) {
-        setCurrentUser(session);
-        setIsAuthenticated(true);
+      // Recuperar el token cifrado desde el almacén seguro de Electron
+      if (window.authAPI?.getToken) {
+        const token = await window.authAPI.getToken();
+        if (token) {
+          setIsAuthenticated(true);
+          // Opcional: decodificar datos del payload o validar con el backend
+        }
       }
     } catch (error) {
-      console.error('Error loading auth state:', error);
+      console.error('Error cargando el estado de sesión cifrado:', error);
     } finally {
       setLoading(false);
     }
@@ -41,25 +34,34 @@ export const useAuth = () => {
 
       const result = await window.electronAPI.login(usuario, password);
 
-      if (result.success) {
+      if (result.success && result.token) {
         setIsAuthenticated(true);
         setCurrentUser(result.usuario);
-        localStorage.setItem(SESSION_KEY, JSON.stringify(result.usuario));
+        
+        // Guardar el JWT usando safeStorage en lugar de localStorage
+        if (window.authAPI?.saveToken) {
+          await window.authAPI.saveToken(result.token);
+        }
         return { success: true };
       }
 
       return { success: false, message: result.message || 'Credenciales incorrectas' };
     } catch (error) {
-      console.error('Error during authentication:', error);
+      console.error('Error durante la autenticación:', error);
       return { success: false, message: 'Error durante la autenticación' };
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     setIsAuthenticated(false);
     setCurrentUser(null);
-    localStorage.removeItem(SESSION_KEY);
-    window.electronAPI?.logout?.(); // limpia el JWT guardado por apiClient.js
+    
+    // Eliminar el archivo del token cifrado
+    if (window.authAPI?.removeToken) {
+      await window.authAPI.removeToken();
+    }
+    
+    window.electronAPI?.logout?.();
 
     if (document.activeElement && document.activeElement.blur) {
       document.activeElement.blur();

@@ -1,11 +1,56 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, safeStorage } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { registerDialogsIPC } = require('./dialogs');
+
+// Ruta del archivo binario donde se guardará el token cifrado por el SO
+const TOKEN_FILE_PATH = path.join(app.getPath('userData'), 'session_token.bin');
 
 // Mantener una referencia global del objeto de ventana
 let mainWindow;
 let databaseHandlers;
 const dbQueries = require('../../server/db/queries'); // Ajusta los niveles de ruta según corresponda
+
+// === IPC Handlers para Autenticación Segura con safeStorage ===
+ipcMain.handle('auth:saveToken', async (event, token) => {
+    try {
+        if (!safeStorage.isEncryptionAvailable()) {
+            throw new Error('El cifrado nativo del SO no está disponible.');
+        }
+        const encryptedBuffer = safeStorage.encryptString(token);
+        fs.writeFileSync(TOKEN_FILE_PATH, encryptedBuffer);
+        return { success: true };
+    } catch (error) {
+        console.error('Error al cifrar token con safeStorage:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('auth:getToken', async () => {
+    try {
+        if (!fs.existsSync(TOKEN_FILE_PATH)) return null;
+        if (!safeStorage.isEncryptionAvailable()) {
+            throw new Error('El cifrado nativo del SO no está disponible.');
+        }
+        const encryptedBuffer = fs.readFileSync(TOKEN_FILE_PATH);
+        return safeStorage.decryptString(encryptedBuffer);
+    } catch (error) {
+        console.error('Error al descifrar token con safeStorage:', error);
+        return null;
+    }
+});
+
+ipcMain.handle('auth:removeToken', async () => {
+    try {
+        if (fs.existsSync(TOKEN_FILE_PATH)) {
+            fs.unlinkSync(TOKEN_FILE_PATH);
+        }
+        return { success: true };
+    } catch (error) {
+        console.error('Error al eliminar token cifrado:', error);
+        return { success: false, error: error.message };
+    }
+});
 
 ipcMain.handle('buscarEnSistemaAcademico', async (event, dni) => {
     try {
@@ -17,15 +62,11 @@ ipcMain.handle('buscarEnSistemaAcademico', async (event, dni) => {
 });
 
 function createWindow() {
-  // Crear la ventana del navegador
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    // Límites mínimos de tamaño de ventana
     minWidth: 900,
     minHeight: 560,
-    maxWidth: undefined,
-    maxHeight: undefined,
     resizable: true,
     webPreferences: {
       nodeIntegration: false,
@@ -35,34 +76,24 @@ function createWindow() {
     },
     icon: path.join(__dirname, '../renderer/assets/BibliOS_Logo.png'),
     title: 'BibliOS - Sistema de Gestión Bibliotecaria',
-    show: false, // No mostrar hasta que esté listo
+    show: false,
     autoHideMenuBar: true
   });
 
-  // Cargar la app de Vite en modo desarrollo
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:5173');
-    
-    // Abrir DevTools en desarrollo
     mainWindow.webContents.openDevTools();
   } else {
-    // En producción, cargar desde el build
     mainWindow.loadFile(path.join(__dirname, '../renderer/dist/index.html'));
   }
 
-  // Mostrar la ventana cuando esté lista
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    
-    // Enfocar la ventana
     mainWindow.focus();
   });
 
-  // Manejar errores de carga
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error('Error al cargar la aplicación:', errorCode, errorDescription);
-    
-    // Reintentar cargar en caso de error
     setTimeout(() => {
       if (process.env.NODE_ENV === 'development') {
         mainWindow.loadURL('http://localhost:5173');
@@ -72,117 +103,55 @@ function createWindow() {
     }, 2000);
   });
 
-  // Emitir evento cuando la ventana esté lista
-  mainWindow.webContents.on('did-finish-load', () => {
-    console.log('Aplicación cargada correctamente');
-  });
-
-  // Manejar cierre de ventana
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
-// Inicializar la aplicación
 app.whenReady().then(() => {
   try {
-    // Inicializar los manejadores de base de datos
     console.log('Manejadores de base de datos inicializados');
-    
-    // Crear la ventana principal
     createWindow();
-    
-    // Configurar eventos de la aplicación
     setupAppEvents();
-    
-    // Registrar handlers de diálogos con reparación de foco
     registerDialogsIPC();
-    
   } catch (error) {
     console.error('Error al inicializar la aplicación:', error);
     app.quit();
   }
 });
 
-// Configurar eventos de la aplicación
 function setupAppEvents() {
-  // Cuando todas las ventanas estén cerradas, cerrar la app
   app.on('window-all-closed', () => {
-    // En macOS, mantener la app activa cuando se cierran todas las ventanas
-    if (process.platform !== 'darwin') {
-      app.quit();
-    }
+    if (process.platform !== 'darwin') app.quit();
   });
 
-  // En macOS, recrear la ventana cuando se hace clic en el icono del dock
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 
-  // Manejar el cierre de la aplicación
   app.on('before-quit', async (event) => {
-    // Solo procesar el cierre si no estamos ya cerrando
     if (app.isQuiting) return;
-    
     event.preventDefault();
     app.isQuiting = true;
-    
     try {
-      console.log('Cerrando aplicación...');
-      
-      // Cerrar la base de datos
       if (databaseHandlers) {
         await databaseHandlers.db.close();
         databaseHandlers.cleanup();
-        console.log('Base de datos cerrada correctamente');
       }
-      
-      // Cerrar la aplicación
       app.exit(0);
     } catch (error) {
       console.error('Error al cerrar la aplicación:', error);
       app.exit(1);
     }
   });
-
-  // Manejar errores no capturados
-  process.on('uncaughtException', (error) => {
-    console.error('Error no capturado:', error);
-    
-    // En desarrollo, mostrar el error
-    if (process.env.NODE_ENV === 'development' && mainWindow) {
-      mainWindow.webContents.send('app:error', {
-        message: 'Error interno de la aplicación',
-        error: error.message
-      });
-    }
-  });
-
-  process.on('unhandledRejection', (reason, promise) => {
-    console.error('Promesa rechazada no manejada:', reason);
-    
-    // En desarrollo, mostrar el error
-    if (process.env.NODE_ENV === 'development' && mainWindow) {
-      mainWindow.webContents.send('app:error', {
-        message: 'Error interno de la aplicación',
-        error: reason
-      });
-    }
-  });
 }
 
-// Configurar variables de entorno
 if (process.env.NODE_ENV === 'development') {
   process.env.NODE_ENV = 'development';
-  console.log('Modo desarrollo activado');
 } else {
   process.env.NODE_ENV = 'production';
-  console.log('Modo producción activado');
 }
 
-// Configurar el protocolo de la aplicación
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
     app.setAsDefaultProtocolClient('biblios', process.execPath, [path.resolve(process.argv[1])]);
@@ -191,5 +160,4 @@ if (process.defaultApp) {
   app.setAsDefaultProtocolClient('biblios');
 }
 
-// Exportar para uso en otros módulos
-module.exports = { mainWindow, databaseHandlers }; 
+module.exports = { mainWindow, databaseHandlers };
