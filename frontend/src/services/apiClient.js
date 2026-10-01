@@ -42,7 +42,7 @@ async function request(method, path, body) {
         fetchBody = JSON.stringify(body);
     }
 
-    const baseUrl = "http://localhost:3001/api";
+    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
     const finalUrl = baseUrl + path;
 
     const res = await fetch(finalUrl, {
