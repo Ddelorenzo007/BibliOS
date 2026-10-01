@@ -21,7 +21,8 @@ export default function Dashboard() {
     stats,
     charts,
     prestamos,
-    clearData
+    clearData,
+    refreshPrestamos
   } = useData();
 
   const { logout } = useAuth();
@@ -32,16 +33,40 @@ export default function Dashboard() {
     sociosActivos
   } = charts;
 
-  // Préstamos activos que vencen en los próximos 3 días (se calcula acá,
-  // no en el contexto, porque solo lo necesita esta pantalla)
+  // Disparar chequeo de vencimientos al cargar el Dashboard
+  React.useEffect(() => {
+    if (window.electronAPI && window.electronAPI.actualizarPrestamosVencidos) {
+      window.electronAPI.actualizarPrestamosVencidos()
+        .then(() => {
+          if (refreshPrestamos) refreshPrestamos();
+        })
+        .catch(console.error);
+    }
+  }, [refreshPrestamos]);
+
+  // 1. Calculamos los VENCIDOS reales leyendo la tabla de préstamos directamente
+  const cantidadVencidos = React.useMemo(() => {
+    return (prestamos || []).filter(p => (p.estado || '').toLowerCase() === 'vencido').length;
+  }, [prestamos]);
+
+  // 2. Calculamos los PRÓXIMOS A VENCER (en los próximos 3 días)
   const prestamosProximosAVencer = React.useMemo(() => {
     const hoy = new Date();
-    const en3Dias = new Date();
+    hoy.setHours(0, 0, 0, 0); 
+    
+    const en3Dias = new Date(hoy);
     en3Dias.setDate(hoy.getDate() + 3);
+    en3Dias.setHours(23, 59, 59, 999);
+
     return (prestamos || []).filter(p => {
-      if (!p.fechaDevolucionPrevista || p.estado !== 'activo') return false;
-      const fecha = new Date(p.fechaDevolucionPrevista);
-      return fecha >= hoy && fecha <= en3Dias;
+      if (!p.fechaDevolucionPrevista || (p.estado || '').toLowerCase() !== 'activo') {
+        return false;
+      }
+      // Reemplazamos guiones por barras para evitar bugs de zona horaria
+      const fechaLimpia = p.fechaDevolucionPrevista.split('T')[0].replace(/-/g, '/');
+      const fechaPrevista = new Date(fechaLimpia);
+      
+      return fechaPrevista >= hoy && fechaPrevista <= en3Dias;
     }).length;
   }, [prestamos]);
 
@@ -376,7 +401,7 @@ export default function Dashboard() {
               <AlertTriangle size={18} strokeWidth={1.5} />
               <div>
                 <h4>Préstamos Vencidos</h4>
-                <p>{stats.prestamosVencidos} préstamos requieren atención inmediata</p>
+                <p>{cantidadVencidos} préstamos requieren atención inmediata</p>
               </div>
             </div>
             <div className="alert-card info">
