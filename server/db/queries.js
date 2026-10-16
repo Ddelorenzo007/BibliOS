@@ -1385,11 +1385,10 @@ const sql = require('mssql');
 
 // Conexión exclusiva y separada para la base de datos del .bak de la facultad
 const dbConfigAcademica = {
-    user: process.env.SYSACAD_USER || 'sa',
-    password: process.env.SYSACAD_PASSWORD || 'DeployUser2026$',
-    server: process.env.SYSACAD_HOST || 'host.docker.internal',
-    port: parseInt(process.env.SYSACAD_PORT || '1433'),
-    database: process.env.SYSACAD_DB || 'SysAcad',
+    user: 'sa',
+    password: 'DeployUser2026$',
+    server: 'host.docker.internal',
+    database: 'SysAcad', // El nombre real de la base del .bak en tu SSMS
     options: {
         encrypt: false,
         trustServerCertificate: true
