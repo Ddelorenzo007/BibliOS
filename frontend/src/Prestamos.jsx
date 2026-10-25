@@ -272,18 +272,25 @@ export default function Prestamos() {
 
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <main className="prestamos-container">
-        <header className="prestamos-header">
-          <div className="header-content">
-            <h1>Gestión de Préstamos</h1>
-            <span className="header-separator">|</span>
-            <p>Administrá préstamos, renovaciones y reservas de ejemplares</p>
-          </div>
-          {vista === 'prestamos' ? (
-            <button className="add-button" onClick={() => setShowForm(!showForm)} aria-expanded={showForm}><Plus size={18} />Nuevo Préstamo</button>
-          ) : (
-            <button className="add-button" onClick={() => setShowReservaForm(!showReservaForm)} aria-expanded={showReservaForm}><Plus size={18} />Nueva Reserva</button>
-          )}
-        </header>
+        <header className="prestamos-header" style={{ height: 'auto', minHeight: '80px', flexWrap: 'wrap', gap: '1rem' }}>
+  <div className="header-content" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', flex: '1 1 auto' }}>
+    <h1 style={{ whiteSpace: 'nowrap', margin: 0 }}>Gestión de Préstamos</h1>
+    <span className="header-separator" style={{ margin: '0 0.25rem' }}>|</span>
+    <p style={{ margin: 0, minWidth: '300px', flex: 1 }}>Administrá préstamos, renovaciones y reservas de ejemplares</p>
+  </div>
+  
+  <div style={{ flexShrink: 0 }}>
+    {vista === 'prestamos' ? (
+      <button className="add-button" onClick={() => setShowForm(!showForm)} aria-expanded={showForm}>
+        <Plus size={18} />Nuevo Préstamo
+      </button>
+    ) : (
+      <button className="add-button" onClick={() => setShowReservaForm(!showReservaForm)} aria-expanded={showReservaForm}>
+        <Plus size={18} />Nueva Reserva
+      </button>
+    )}
+  </div>
+</header>
 
         <nav className="vista-toggle" aria-label="Cambiar vista entre préstamos y reservas">
           <button className={vista === 'prestamos' ? 'active' : ''} onClick={() => setVista('prestamos')}>

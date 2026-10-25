@@ -121,15 +121,15 @@ CREATE TABLE ejemplares (
     tomoId              INTEGER NOT NULL REFERENCES tomos(id) ON DELETE RESTRICT,
     numeroControl       VARCHAR(30) NOT NULL UNIQUE,
     numeroInventario    VARCHAR(30) NOT NULL UNIQUE,
-    ubicacion           VARCHAR(100),
-    estado              VARCHAR(20) NOT NULL DEFAULT 'disponible'
-                            CHECK (estado IN ('disponible', 'prestado', 'reservado', 'en_reparacion', 'extraviado', 'baja')),
+    ubicacion           VARCHAR(100), -- Para el texto libre (ej. "Estante 5")
+    tipoUbicacion       VARCHAR(50) DEFAULT 'deposito' CHECK (tipoUbicacion IN ('deposito', 'sala')), -- NUEVA COLUMNA
+    estado              VARCHAR(20) NOT NULL DEFAULT 'disponible' CHECK (estado IN ('disponible', 'prestado', 'reservado', 'en_reparacion', 'extraviado', 'baja')),
     fechaAlta           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_ejemplares_tomo ON ejemplares(tomoId);
 CREATE INDEX idx_ejemplares_estado ON ejemplares(estado);
-
+CREATE INDEX idx_ejemplares_tipoUbicacion ON ejemplares(tipoUbicacion);
 
 -- ============================================================================
 -- CIRCULACIÓN: préstamos, renovaciones, reservas, sanciones

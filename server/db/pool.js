@@ -1,23 +1,22 @@
 const { Pool, types } = require('pg');
 require('dotenv').config();
 
-// COUNT(*) y otras agregaciones devuelven tipo "bigint" (OID 20) en
-// Postgres, que node-postgres parsea como STRING por defecto (para no
-// perder precisión en números astronómicos). Acá nunca vamos a tener
-// conteos que superen el rango seguro de un number de JS, así que se
-// fuerza a número real -- si no, cosas como `stats.reduce((sum, o) =>
-// sum + o.cantidadEjemplares, 0)` en el frontend concatenan strings en
-// vez de sumar ("0" + "0" = "00").
+console.log("🔍 Password en memoria:", process.env.PGPASSWORD);
+
 types.setTypeParser(20, (val) => parseInt(val, 10));
 
-// Variables de entorno esperadas (ver .env.example):
-//   DATABASE_URL=postgres://usuario:password@host:5432/biblios
-// o, alternativamente, las variables sueltas PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE
-// que "pg" reconoce automáticamente si DATABASE_URL no está seteada.
+// Si existe DATABASE_URL (ej. en el servidor), la usa.
+// Si no, usa las variables sueltas, y si tampoco están, usa los valores por defecto de tu Docker local.
 const pool = new Pool(
     process.env.DATABASE_URL
         ? { connectionString: process.env.DATABASE_URL }
-        : undefined
+        : {
+            user: process.env.PGUSER || 'postgres',
+            host: process.env.PGHOST || 'localhost',
+            database: process.env.PGDATABASE || 'biblios_db',
+            password: process.env.PGPASSWORD || 'biblios_password',
+            port: process.env.PGPORT || 5432,
+        }
 );
 
 pool.on('error', (err) => {

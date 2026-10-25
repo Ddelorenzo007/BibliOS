@@ -11,12 +11,30 @@ export const useAuth = () => {
 
   const loadAuthState = async () => {
     try {
-      // Recuperar el token cifrado desde el almacén seguro de Electron
       if (window.authAPI?.getToken) {
         const token = await window.authAPI.getToken();
         if (token) {
           setIsAuthenticated(true);
-          // Opcional: decodificar datos del payload o validar con el backend
+          
+          // Decodificamos el payload del JWT de forma nativa (sin librerías extra)
+          try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            
+            const payload = JSON.parse(jsonPayload);
+            
+            setCurrentUser({
+              id: payload.id,
+              usuario: payload.usuario,
+              nombre: payload.nombre,
+              rol: payload.rol
+            }); 
+          } catch (decodeError) {
+            console.error('Error al decodificar el JWT:', decodeError);
+          }
         }
       }
     } catch (error) {

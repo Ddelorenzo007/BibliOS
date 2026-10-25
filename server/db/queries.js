@@ -1,5 +1,32 @@
 const crypto = require('crypto');
 const pool = require('./pool');
+const bcrypt = require('bcrypt');
+
+// const inicializarAdmin = async () => {
+//     try {
+//         const check = await pool.query("SELECT * FROM usuarios WHERE usuario = 'admin'");
+        
+//         if (check.rows.length === 0) {
+//             console.log("Generando usuario administrador base...");
+            
+//             const salt = await bcrypt.genSalt(10);
+//             const hash = await bcrypt.hash('biblios2026', salt);
+            
+//             await pool.query(
+//                 `INSERT INTO usuarios (usuario, passwordHash, salt, nombre, rol, estado) 
+//                  VALUES ($1, $2, $3, $4, $5, $6)`,
+//                 ['admin', hash, salt, 'Administrador Sistema', 'administrador', 'activo']
+//             );
+            
+//             console.log("⭐ Usuario 'admin' creado exitosamente.");
+//         }
+//     } catch (error) {
+//         console.error("Error al inicializar el admin base:", error);
+//     }
+// };
+
+// // Llamamos a la función directamente al cargar el archivo
+// inicializarAdmin();
 
 // ============================================================================
 // Traducción de la lógica de negocio de src/main/database/database.js
@@ -83,7 +110,7 @@ const CAMEL_MAP = {
     ejemplaresdisponibles: 'ejemplaresDisponibles', autorestexto: 'autoresTexto',
     tomonumero: 'tomoNumero', obratitulo: 'obraTitulo', socionombre: 'socioNombre',
     socioapellido: 'socioApellido', sociodni: 'socioDni', usuarionombre: 'usuarioNombre',
-    tipoubication: 'tipoUbicacion',
+    tipoUbicacion: 'tipoUbicacion',
     tipoubicacion: 'tipoUbicacion',
 };
 
@@ -385,7 +412,7 @@ async function getObraById(id) {
     const tomosRes = await pool.query('SELECT * FROM tomos WHERE obraId = $1 ORDER BY numero ASC', [id]);
     obra.tomos = camelizeRows(tomosRes.rows);
     for (const tomo of obra.tomos) {
-        const ejemplaresRes = await pool.query('SELECT *, tipoubication AS "tipoUbicacion" FROM ejemplares WHERE tomoId = $1 ORDER BY numeroInventario ASC', [tomo.id]);
+        const ejemplaresRes = await pool.query('SELECT *, tipoUbicacion AS "tipoUbicacion" FROM ejemplares WHERE tomoId = $1 ORDER BY numeroInventario ASC', [tomo.id]);
         tomo.ejemplares = camelizeRows(ejemplaresRes.rows);
     }
 
@@ -498,7 +525,7 @@ async function createEjemplar(ejemplarData) {
             Validators.validateRequired(ejemplarData.numeroInventario, 'numeroInventario');
             
             // Aceptamos cualquier variante que envíe el frontend
-            const tipoUbicacion = ejemplarData.tipoUbicacion || ejemplarData.tipo_ubicacion || ejemplarData.tipoubication || 'deposito';
+            const tipoUbicacion = ejemplarData.tipoUbicacion || ejemplarData.tipo_ubicacion || ejemplarData.tipoUbicacion || 'deposito';
             console.log("Tipo de ubicación detectado para inserción:", tipoUbicacion); // <-- Y ESTO
             if (!['deposito', 'sala'].includes(tipoUbicacion)) {
                 throw new Error('El tipo de ubicación debe ser "deposito" o "sala"');
@@ -511,7 +538,7 @@ async function createEjemplar(ejemplarData) {
             if (duplicado.rows.length > 0) throw new Error(`El número de inventario manual "${ejemplarData.numeroInventario}" ya existe.`);
 
             const result = await client.query(
-                `INSERT INTO ejemplares (tomoId, numeroControl, numeroInventario, ubicacion, estado, tipoubication)
+                `INSERT INTO ejemplares (tomoId, numeroControl, numeroInventario, ubicacion, estado, tipoUbicacion)
                  VALUES ($1, 'TEMP', $2, $3, $4, $5) RETURNING id`,
                 [ejemplarData.tomoId, ejemplarData.numeroInventario, ejemplarData.ubicacion || null, ejemplarData.estado || 'disponible', tipoUbicacion]
             );
@@ -531,7 +558,7 @@ async function createEjemplar(ejemplarData) {
 
 async function getEjemplares(filters = {}) {
     let query = `
-        SELECT ej.*, ej.tipoubication AS "tipoUbicacion", t.numero as "tomoNumero", o.isbn, o.id as "obraId", o.titulo as "obraTitulo"
+        SELECT ej.*, ej.tipoUbicacion AS "tipoUbicacion", t.numero as "tomoNumero", o.isbn, o.id as "obraId", o.titulo as "obraTitulo"
         FROM ejemplares ej
         JOIN tomos t ON ej.tomoId = t.id
         JOIN obras o ON t.obraId = o.id
@@ -553,7 +580,7 @@ async function getEjemplares(filters = {}) {
 
 async function getEjemplarById(id) {
     const { rows } = await pool.query(`
-        SELECT ej.*, ej.tipoubication AS "tipoUbicacion", ej.tipoubication AS "tipoubication", t.numero as "tomoNumero", o.isbn, o.id as "obraId", o.titulo as "obraTitulo"
+        SELECT ej.*, ej.tipoUbicacion AS "tipoUbicacion", ej.tipoUbicacion AS "tipoUbicacion", t.numero as "tomoNumero", o.isbn, o.id as "obraId", o.titulo as "obraTitulo"
         FROM ejemplares ej
         JOIN tomos t ON ej.tomoId = t.id
         JOIN obras o ON t.obraId = o.id
@@ -578,14 +605,14 @@ async function updateEjemplar(id, updates) {
         }
 
         // Capturamos cualquier variante enviada al actualizar
-        const tipoUb = updates.tipoUbicacion !== undefined ? updates.tipoUbicacion : (updates.tipo_ubicacion !== undefined ? updates.tipo_ubicacion : updates.tipoubication);
+        const tipoUb = updates.tipoUbicacion !== undefined ? updates.tipoUbicacion : (updates.tipo_ubicacion !== undefined ? updates.tipo_ubicacion : updates.tipoUbicacion);
         
         if (tipoUb !== undefined) {
             if (!['deposito', 'sala'].includes(tipoUb)) {
                 throw new Error('El tipo de ubicación debe ser "deposito" o "sala"');
             }
             values.push(tipoUb);
-            fields.push(`tipoubication = $${values.length}`);
+            fields.push(`tipoUbicacion = $${values.length}`);
         }
 
         if (fields.length === 0) return false;

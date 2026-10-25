@@ -9,7 +9,9 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      # Este volumen es CRÍTICO para que no se borren los datos al apagar el contenedor
+      # Apunta tu archivo SQL local hacia la carpeta de auto-ejecución del contenedor
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      # Volumen para persistir los datos
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 

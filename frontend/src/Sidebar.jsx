@@ -30,7 +30,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
 
   const isActive = (path) => location.pathname === path ? 'active' : '';
-
+  console.log("🔍 Estado actual de currentUser:", currentUser);
   return (
     <>
       <LogoutModal

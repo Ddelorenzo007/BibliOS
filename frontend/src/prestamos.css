@@ -90,6 +90,7 @@ button:hover {
   outline: none !important;
   box-shadow: var(--shadow);
   transition: none !important;
+  padding-bottom: 0.75rem;
 }
 
 .add-button:hover {
